@@ -10,7 +10,7 @@ import urllib
 import urllib.request
 
 #user input gene name
-gene_name = input("Enter the residue you want to search for (e.g., SHANK3): ")
+gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
 
 re_next_link = re.compile(r'<(.+)>; rel="next"')
 retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])
@@ -84,7 +84,7 @@ records = SeqIO.parse(fasta_io, "fasta")
 for rec in records:
     #print(rec)
     seq_str = str(rec.seq)
-    print(seq_str[0:54])
+    #print(seq_str[0:54])
 
 fasta_io.close() 
 
@@ -128,9 +128,9 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
         return outfnm
     except Exception as err:
         print(str(err), file=sys.stderr)
-        return None
+        return  outfnm
 
-download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
+pdbpath = download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
 
 #mutate PDB sequence
 def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_chain, target_new_resname):
@@ -161,7 +161,7 @@ def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_ch
 
 
 # Example usage
-input_pdb_path = '6kyk.pdb'
+input_pdb_path = pdbpath#'6kyk.pdb'
 output_pdb_path = '6kyk_mutated.pdb'
 
 # Get user input for target residue number and mutant name
