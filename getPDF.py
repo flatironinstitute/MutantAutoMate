@@ -1,6 +1,14 @@
 from fpdf import FPDF
+from matplotlib.backends.backend_pdf import PdfPages
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+import mdtraj as md
+from matplotlib import pyplot as plt
+import pandas as pd
+
+residue1 = input("Enter residue one:")
+residue2 = input("Enter residue two:")
+number = int(input("Enter residue position:"))
 
 #charge change
 #1 charge
@@ -46,22 +54,13 @@ def get_charge_change_score(residue1, residue2):
     residue1_charge = aa_charge_dict[residue1]
     residue2_charge = aa_charge_dict[residue2]
     
-    print(f"residue1: {residue1}")
-    print(f"residue2: {residue2}")
-    print(f"residue1_charge: {residue1_charge}")
-    print(f"residue2_charge: {residue2_charge}")
-    
-    if residue1_charge == residue2_charge:
-        print("No charge change")
-        return 0
-    elif residue2_charge in aa_charge_categories[f"{residue1_charge}-to-{residue2_charge}"]:
-        print("Charge change in the expected direction")
-        return 1
-    else:
-        print("Charge change in the opposite direction")
-        return -1
+    # print(f"residue1: {residue1}")
+    # print(f"residue2: {residue2}")
+    print("Charge change from", f"{residue1_charge}", "to", f"{residue2_charge}")
 
-print(score)
+
+score = get_charge_change_score(residue1, residue2)
+#print(score)
 #DSSP secondary structure
 
 import matplotlib.pyplot as plt
@@ -80,18 +79,22 @@ topology = traj.topology
 
 dssp = md.compute_dssp(traj)
 
-if dssp[0][341] == "H":
+if dssp[0][number] == "H":
     print("alpha-helix structure")
 else:
     print("not an alpha helix")
 
 
 
-#SASA graphs(x2) snapshot
-#VDW
-#image construction
+# #SASA graphs(x2) snapshot
+traj = md.load("/Users/asameerpradhan/Downloads/6kyk.pdb")
+sasa = md.shrake_rupley(traj, mode='atom')
+print(type(plt.plot(sasa[0])))
 
-#add 2 PDF
+# #VDW
+# #image construction
+
+# #add 2 PDF
 
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -117,3 +120,38 @@ def generate_pdf():
 
 # Call the function to generate the PDF
 generate_pdf()
+
+import mdtraj as md
+
+# Load your PDB file
+traj1 = md.load("/Users/asameerpradhan/Downloads/6kyk.pdb") #main PDB
+traj2 = md.load("/Users/asameerpradhan/Downloads/7sk2.pdb") #mutated PDB from getPDB code
+# Compute the SASA for each frame
+sasa1 = md.shrake_rupley(traj1, mode='atom')
+sasa2 = md.shrake_rupley(traj2, mode='atom')
+print(type(sasa[0]))
+
+#generate SASA PDF
+
+data_1 = sasa1[0]
+data_2 = sasa2[0]
+
+df_1 = pd.DataFrame(data_1)
+df_2 = pd.DataFrame(data_2)
+
+with PdfPages(r'/Users/asameerpradhan/output1.pdf') as export_pdf:
+    plt.plot(sasa1[0])
+    plt.xlabel('residue', fontsize=14)
+    plt.ylabel('sasa', fontsize=14)
+    plt.grid(True)
+    export_pdf.savefig()
+    plt.close()
+
+with PdfPages(r'/Users/asameerpradhan/output2.pdf') as export_pdf:
+    plt.plot(sasa2[0])
+    plt.xlabel('residue(mutated)', fontsize=14)
+    plt.ylabel('sasa(mutated)', fontsize=14)
+    plt.grid(True)
+    export_pdf.savefig()
+    plt.close()
+
