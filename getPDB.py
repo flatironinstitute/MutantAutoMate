@@ -8,6 +8,9 @@ import os
 import sys
 import urllib
 import urllib.request
+import urllib.request
+from pathlib import Path
+
 
 #user input gene name
 gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
@@ -30,6 +33,7 @@ def get_all_isoforms():
     url1 = "https://rest.uniprot.org/uniprotkb/search?query=reviewed:true+AND+"
     url3 = "&includeIsoform=true&format=list&(taxonomy_id:9606)"
     url = url1 + gene_name + url3
+    print(url)
     #https://www.uniprot.org/uniprotkb?query=(gene:shank3)%20AND%20(taxonomy_id:9606)
     batch_url = url
     while batch_url:
@@ -50,6 +54,7 @@ def search_residue(residue, position):
     for isoform, sequence in all_isoforms:
         if len(sequence) > position-1 and sequence[position-1] == residue:
             matching_isoforms.append(isoform)
+            print(isoform)
     return matching_isoforms
 
 
@@ -64,50 +69,48 @@ if len(matching_isoforms) > 0:
 else:
     print(f"The residue {residue} is not present at position {position} in any of the isoforms.")
 
-#print(matching_isoforms[0])
 
 #first uniprot match to fasta sequence
 u = UniProt()
 sequence = u.retrieve(matching_isoforms[0],"fasta")
-# print(sequence)
+
 
 from io import StringIO
 from Bio import SeqIO
 
 fasta_string = sequence
-#print(fasta_string)
+
 
 fasta_io = StringIO(fasta_string) 
 
 records = SeqIO.parse(fasta_io, "fasta") 
 
 for rec in records:
-    #print(rec)
     seq_str = str(rec.seq)
-    #print(seq_str[0:54])
+    
 
 fasta_io.close() 
 
-#fasta to PDBID
-u = UniProt()
-sequence = u.retrieve("Q9BYB0","fasta")
 
 q = Query(seq_str[0:54], 
           query_type="sequence", 
           return_type="polymer_entity")
+#print(q)
+result = q.search()
+if result is None or result is None:
+    pdbnewcode = matching_isoforms[0]
+    #pdbpath = download_pdb(matching_isoforms[0], "/Users/asameerpradhan/Desktop")
 
-result = q.search()  # perform the search and get the result
-highest_score = -1.0
-identifier = ""
+else:
+    highest_score = -1.0
+    identifier = ""
+    for result in result['result_set']:
+        if result['score'] > highest_score:
+            highest_score = result['score']
+            identifier = result['identifier']
+    print("Identifier with the highest score:", identifier[0:4])
 
-for result in result['result_set']:
-    if result['score'] > highest_score:
-        highest_score = result['score']
-        identifier = result['identifier']
 
-print("Identifier with the highest score:", identifier[0:4])
-
-#download PDB from RCSB
 
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
     """
@@ -127,12 +130,28 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
         print(outfnm)
         return outfnm
     except Exception as err:
-        print(str(err), file=sys.stderr)
+        print("ERROR")
         return  outfnm
-print(identifier[0:4])
-pdbpath = download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
 
-#mutate PDB sequence
+def new_method_for_alphafold(pdbcode, datadir):
+    new_url = "https://alphafold.ebi.ac.uk/files/AF-" + matching_isoforms[0] + "-F1-model_v4.pdb"
+    pdbfn2 = pdbcode + ".pdb"
+    outfnm2 = os.path.join(datadir, pdbfn2)
+    print(new_url)
+    try: 
+        urllib.request.urlretrieve(new_url, outfnm2)
+        print(outfnm2)
+        return outfnm2
+    except Exception as err:
+        print("ERROR")
+        return outfnm2
+
+if result is None or result is None:
+    pdbpath = new_method_for_alphafold(matching_isoforms[0], "/Users/asameerpradhan/Desktop")
+else:
+    pdbpath = download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
+
+
 def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_chain, target_new_resname):
     """
     Mutates a residue in a PDB file by changing its residue name.
@@ -147,6 +166,7 @@ def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_ch
     Returns:
         None
     """
+    delete_residues = False
     with open(input_pdb_path, 'r') as f_in:
         with open(output_pdb_path, 'w') as f_out:
             for line in f_in:
@@ -155,10 +175,14 @@ def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_ch
                     resnum = int(line[22:26])
                     resname = line[17:20]
                     if chain == target_chain and resnum == target_resnum:
+                        if target_new_resname.lower() in ['ter', 'terminal']:
+                            delete_residues = True
+                            continue
                         resname = target_new_resname
+                    elif delete_residues:
+                        continue
                     line = line[:17] + resname + line[20:]
                 f_out.write(line)
-
 
 # Example usage
 input_pdb_path = pdbpath
