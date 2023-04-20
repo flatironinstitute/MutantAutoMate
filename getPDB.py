@@ -129,7 +129,7 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
     except Exception as err:
         print(str(err), file=sys.stderr)
         return  outfnm
-
+print(identifier[0:4])
 pdbpath = download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
 
 #mutate PDB sequence
@@ -161,8 +161,8 @@ def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_ch
 
 
 # Example usage
-input_pdb_path = pdbpath#'6kyk.pdb'
-output_pdb_path = '6kyk_mutated.pdb'
+input_pdb_path = pdbpath
+output_pdb_path = 'new_mutated.pdb'
 
 # Get user input for target residue number and mutant name
 target_resnum = int(input("Enter target residue number: "))
