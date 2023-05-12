@@ -43,16 +43,6 @@ def get_all_isoforms(gene_name): #works!
         batch_url = get_next_link(response.headers)
     return isoforms
 
-# def search_residue(residue, position, all_isoforms):
-#   matching_isoforms = []
-#   for i in range(len((all_isoforms))):
-#     print(len((all_isoforms)))
-#     #iterate through entire list
-#     isoform, sequence = all_isoforms[i] #one more loop to check in all sequences
-#     #print(isoform, sequence)
-#     if len(sequence) > position-1 and sequence[position-1] == residue:
-#         matching_isoforms.append(isoform)  
-#     return matching_isoforms
 
 def search_residue(residue, position, all_isoforms):
     matching_isoforms = []
@@ -105,11 +95,8 @@ residue_positions = df['residue_position'].astype(int).tolist()
 for (gene_name, residue_name, residue_position, i) in zip(gene_names, residue_names, residue_positions, range(len(residue_names))):
     all_isoforms = get_all_isoforms(gene_name)
     matching_isoforms = search_residue(residue_name, residue_position, all_isoforms)
-    #print(matching_isoforms[0])
-    #first uniprot match to fasta sequence
     u = UniProt()
     sequence = u.retrieve(matching_isoforms[0],"fasta")
-    #print("RETRIEVE ONLY", sequence)
     fasta_string = sequence #select only the sequence part
     fasta_io = StringIO(fasta_string)  #convert to instance of a string object
     records = SeqIO.parse(fasta_io, "fasta")  #iterator object
