@@ -16,6 +16,11 @@ import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 import seaborn as sns
 import mdtraj as md
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib import colors
+from reportlab.lib.units import inch
 
 #user input gene name
 gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
@@ -297,13 +302,28 @@ if sasa_diff>=0.2:
 else: 
     sasa_answer = "Not a significant change in SASA."
 
-# Define the function to generate the PDF
-def generate_pdf():
-   # Create a new PDF document with letter size
-    c = canvas.Canvas("output.pdf", pagesize=letter)
+def generate_pdf(paragraphs, filename):
+    doc = SimpleDocTemplate(filename, pagesize=letter)
+    styles = getSampleStyleSheet()
 
-    # Define the print statements to be written to the PDF
-    print_statements = [f"For the gene {gene_name}" , 
+    # Custom style for user input paragraphs
+    user_input_style = ParagraphStyle(
+        'UserInputStyle',
+        parent=styles['Normal'],
+        spaceAfter=0.25*inch,
+        textColor=colors.blue,
+    )
+    styles.add(user_input_style)
+
+    # Create content for the PDF
+    content = []
+    for paragraph in paragraphs:
+        content.append(Paragraph(paragraph, styles['UserInputStyle']))
+
+    # Build the PDF document
+    doc.build(content)
+
+print_statements = [f"For the gene {gene_name}" , 
                         f"the matching isoforms are: ",
                         f"{matching_isoforms}",
                         f"and the PDB ID for the matched isoform is {identifier[0:4]}.",
@@ -327,17 +347,50 @@ def generate_pdf():
                         f"and the overall protein context.",
                         f"Detailed experimental or computational analysis is typically required to accurately assess the impact", 
                         f"of a point mutation on pathogenicity in a specific protein."]
+generate_pdf(print_statements, 'pdfpdf.pdf')
 
-    # Set the starting position for writing the print statements
-    x, y = 50, 750
 
-    # Write the print statements to the PDF
-    for statement in print_statements:
-        c.drawString(x, y, statement)
-        y -= 50
+# # Define the function to generate the PDF
+# def generate_pdf():
+#    # Create a new PDF document with letter size
+#     c = canvas.Canvas("output.pdf", pagesize=letter)
 
-    # Save the PDF document
-    c.save()
+#     # Define the print statements to be written to the PDF
+#     print_statements = [f"For the gene {gene_name}" , 
+#                         f"the matching isoforms are: ",
+#                         f"{matching_isoforms}",
+#                         f"and the PDB ID for the matched isoform is {identifier[0:4]}.",
+#                         f"the residue at position {position} goes from {residue} to {target_new_resname}.",
+#                         f"Parameters that may contribute to the pathogenicity of the mutant are: ",
+#                         f"charge change, presence on alpha-helix strand and change in solvent accessible surface area.",
+#                         #f"The charge of an amino acid residue is determined by the presence of positively charged (basic), ",
+#                         #f"negatively charged (acidic), or neutral side chains.",
+#                         f"{score}.",
+#                         #f"A point mutation that occurs on an alpha helix strand of a protein can potentially impact the pathogenicity",
+#                         #f"of the mutation in several ways, depending on the nature and location of the mutation."
+#                         f"The residue is an {dssp_answer}.",
+#                         f"The change in Solvent Accessible Surface Area is {sasa_answer}.",
+#                         #f"Reasoning: The SASA is a measure of the exposed surface area of a molecule that is accessible", 
+#                         #f"to solvent molecules.",
+#                         #f"Generally, larger SASA score changes are more likely to have a significant impact on protein function",
+#                         #f"and pathogenicity.",
+#                         f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation",
+#                         f"will depend on many factors, including the nature of the amino acid change, ",
+#                         f"the location of the mutation within the alpha helix, the role of the affected residue in protein function,",
+#                         f"and the overall protein context.",
+#                         f"Detailed experimental or computational analysis is typically required to accurately assess the impact", 
+#                         f"of a point mutation on pathogenicity in a specific protein."]
 
-# Call the function to generate the PDF
-generate_pdf()
+#     # Set the starting position for writing the print statements
+#     x, y = 50, 750
+
+#     # Write the print statements to the PDF
+#     for statement in print_statements:
+#         c.drawString(x, y, statement)
+#         y -= 50
+
+#     # Save the PDF document
+#     c.save()
+
+# # Call the function to generate the PDF
+# generate_pdf()
