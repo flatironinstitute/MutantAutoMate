@@ -39,12 +39,15 @@ def get_next_link(headers):
 
 
 def get_all_isoforms():
+     """
+    Gets a list of all isoforms that match the mentioned residue and residue position.
+        `https://www.rcsb.org/pages/download/http#structures` for details
+    :return: isoform list w// Uniprot IDs of isoforms or None if something went wrong
+    """
     isoforms = []
     url1 = "https://rest.uniprot.org/uniprotkb/search?query=reviewed:true+AND+"
     url3 = "&includeIsoform=true&format=list&(taxonomy_id:9606)"
     url = url1 + gene_name + url3
-    print(url)
-    #https://www.uniprot.org/uniprotkb?query=(gene:shank3)%20AND%20(taxonomy_id:9606)
     batch_url = url
     while batch_url:
         response = session.get(batch_url)
@@ -59,6 +62,13 @@ def get_all_isoforms():
     return isoforms
 
 def search_residue(residue, position):
+    """
+    Searches for mentioned residue in position
+    :param residue: The residue code(example: P for Proline)
+    :param position: The position to find the isoform(example: 34)
+        `https://www.rcsb.org/pages/download/http#structures` for details
+    :return: list of matching isoforms
+    """
     matching_isoforms = []
     all_isoforms = get_all_isoforms()
     for isoform, sequence in all_isoforms:
@@ -105,11 +115,9 @@ fasta_io.close()
 q = Query(seq_str[0:54], 
           query_type="sequence", 
           return_type="polymer_entity")
-#print(q)
 result = q.search()
 if result is None or result is None:
     pdbnewcode = matching_isoforms[0]
-    #pdbpath = download_pdb(matching_isoforms[0], "/Users/asameerpradhan/Desktop")
 
 else:
     highest_score = -1.0
@@ -121,7 +129,7 @@ else:
     print("Identifier with the highest score:", identifier[0:4])
 
 
-#download matched PDB
+# Download matched PDB
 
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
     """
@@ -209,7 +217,7 @@ mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_chain,
 print(f"Successfully mutated residue {target_resnum} in chain {target_chain} to {target_new_resname}.")
 print(f"Mutated PDB file saved as {output_pdb_path}.")
 
-#mutant parameters: charge change
+# Mutant parameters: charge change
 def get_charge_change_score(residue1, residue2):
     aa_charge_dict = {
         "A": "non-polar",
@@ -252,13 +260,12 @@ def get_charge_change_score(residue1, residue2):
     residue1_charge = aa_charge_dict[residue1]
     residue2_charge = aa_charge_dict[residue2]
     
-    # print(f"residue1: {residue1}")
-    # print(f"residue2: {residue2}")
     answer = "Charge change from", f"{residue1_charge}", "to", f"{residue2_charge}"
     print(answer)
     return answer
 
 score = get_charge_change_score(residue, target_new_resname)
+
 #mutant parameters: secondary structure
 
 sns.set(style='white')
@@ -279,10 +286,10 @@ else:
     dssp_answer = "not an alpha helix"
 
 #Compute DSSP:
-# Load your PDB file
+#Load your PDB file
 traj1 = md.load(pdbpath) #main PDB
 traj2 = md.load(output_pdb_path) #mutated PDB from getPDB code
-# Compute the SASA for each frame
+#Compute the SASA for each frame
 sasa1 = md.shrake_rupley(traj1, mode='atom')
 sasa2 = md.shrake_rupley(traj2, mode='atom')
 
@@ -302,6 +309,7 @@ if sasa_diff>=0.2:
 else: 
     sasa_answer = "Not a significant change in SASA."
 
+#Function to generate PDF w/ information
 def generate_pdf(paragraphs, filename):
     doc = SimpleDocTemplate(filename, pagesize=letter)
     styles = getSampleStyleSheet()
@@ -330,17 +338,9 @@ print_statements = [f"For the gene {gene_name}" ,
                         f"the residue at position {position} goes from {residue} to {target_new_resname}.",
                         f"Parameters that may contribute to the pathogenicity of the mutant are: ",
                         f"charge change, presence on alpha-helix strand and change in solvent accessible surface area.",
-                        #f"The charge of an amino acid residue is determined by the presence of positively charged (basic), ",
-                        #f"negatively charged (acidic), or neutral side chains.",
                         f"{score}.",
-                        #f"A point mutation that occurs on an alpha helix strand of a protein can potentially impact the pathogenicity",
-                        #f"of the mutation in several ways, depending on the nature and location of the mutation."
                         f"The residue is an {dssp_answer}.",
                         f"The change in Solvent Accessible Surface Area is {sasa_answer}.",
-                        #f"Reasoning: The SASA is a measure of the exposed surface area of a molecule that is accessible", 
-                        #f"to solvent molecules.",
-                        #f"Generally, larger SASA score changes are more likely to have a significant impact on protein function",
-                        #f"and pathogenicity.",
                         f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation",
                         f"will depend on many factors, including the nature of the amino acid change, ",
                         f"the location of the mutation within the alpha helix, the role of the affected residue in protein function,",
@@ -350,47 +350,3 @@ print_statements = [f"For the gene {gene_name}" ,
 generate_pdf(print_statements, 'pdfpdf.pdf')
 
 
-# # Define the function to generate the PDF
-# def generate_pdf():
-#    # Create a new PDF document with letter size
-#     c = canvas.Canvas("output.pdf", pagesize=letter)
-
-#     # Define the print statements to be written to the PDF
-#     print_statements = [f"For the gene {gene_name}" , 
-#                         f"the matching isoforms are: ",
-#                         f"{matching_isoforms}",
-#                         f"and the PDB ID for the matched isoform is {identifier[0:4]}.",
-#                         f"the residue at position {position} goes from {residue} to {target_new_resname}.",
-#                         f"Parameters that may contribute to the pathogenicity of the mutant are: ",
-#                         f"charge change, presence on alpha-helix strand and change in solvent accessible surface area.",
-#                         #f"The charge of an amino acid residue is determined by the presence of positively charged (basic), ",
-#                         #f"negatively charged (acidic), or neutral side chains.",
-#                         f"{score}.",
-#                         #f"A point mutation that occurs on an alpha helix strand of a protein can potentially impact the pathogenicity",
-#                         #f"of the mutation in several ways, depending on the nature and location of the mutation."
-#                         f"The residue is an {dssp_answer}.",
-#                         f"The change in Solvent Accessible Surface Area is {sasa_answer}.",
-#                         #f"Reasoning: The SASA is a measure of the exposed surface area of a molecule that is accessible", 
-#                         #f"to solvent molecules.",
-#                         #f"Generally, larger SASA score changes are more likely to have a significant impact on protein function",
-#                         #f"and pathogenicity.",
-#                         f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation",
-#                         f"will depend on many factors, including the nature of the amino acid change, ",
-#                         f"the location of the mutation within the alpha helix, the role of the affected residue in protein function,",
-#                         f"and the overall protein context.",
-#                         f"Detailed experimental or computational analysis is typically required to accurately assess the impact", 
-#                         f"of a point mutation on pathogenicity in a specific protein."]
-
-#     # Set the starting position for writing the print statements
-#     x, y = 50, 750
-
-#     # Write the print statements to the PDF
-#     for statement in print_statements:
-#         c.drawString(x, y, statement)
-#         y -= 50
-
-#     # Save the PDF document
-#     c.save()
-
-# # Call the function to generate the PDF
-# generate_pdf()
