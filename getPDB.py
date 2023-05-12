@@ -33,8 +33,6 @@ def get_all_isoforms():
     url1 = "https://rest.uniprot.org/uniprotkb/search?query=reviewed:true+AND+"
     url3 = "&includeIsoform=true&format=list&(taxonomy_id:9606)"
     url = url1 + gene_name + url3
-    print(url)
-    #https://www.uniprot.org/uniprotkb?query=(gene:shank3)%20AND%20(taxonomy_id:9606)
     batch_url = url
     while batch_url:
         response = session.get(batch_url)
@@ -95,11 +93,9 @@ fasta_io.close()
 q = Query(seq_str[0:54], 
           query_type="sequence", 
           return_type="polymer_entity")
-#print(q)
 result = q.search()
 if result is None or result is None:
     pdbnewcode = matching_isoforms[0]
-    #pdbpath = download_pdb(matching_isoforms[0], "/Users/asameerpradhan/Desktop")
 
 else:
     highest_score = -1.0
