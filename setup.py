@@ -10,5 +10,20 @@ setup(
     install_requires=[
         'numpy',
         'pandas',
+        'requests',
+        'pypdb',
+        'bioservices',
+        'urllib',
+        'pathlib',
+        'reportlab',
+        'mdtraj',
+        'seaborn',
+        'matplotlib',
+        're',
+        'fpdf',
+        'os',
+        'Bio',
+        'io',
+        'PyPDF2'
     ],
 )
