@@ -6,10 +6,8 @@ build-backend = "setuptools.build_meta"
 authors = [
    { name = "Akshada Pradhan", email = "asameerpradhan@flatironinstitute.org"},
 ]
-name = "wbpj"
+name = "mutantautomate"
 version = "0.0.1"
 dependencies = [
     "numpy",
-    "finufft >= 2"
-    
 ]
