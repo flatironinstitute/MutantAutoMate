@@ -10,4 +10,14 @@ name = "mutantautomate"
 version = "0.0.1"
 dependencies = [
     "numpy",
+    "pandas",
+    "requests",
+    "pypdb",
+    "bioservices",
+    "reportlab",
+    "mdtraj",
+    "seaborn",
+    "matplotlib",
+    "fpdf",
+    "Bio",
 ]
