@@ -9,3 +9,5 @@ Call `snapshot.sh` through the terminal by:
 `./snapshot.sh 'file1' 'file2' `
 
 
+
+
