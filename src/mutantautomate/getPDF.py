@@ -5,6 +5,7 @@ from reportlab.pdfgen import canvas
 import mdtraj as md
 from matplotlib import pyplot as plt
 import pandas as pd
+import os
 
 residue1 = input("Enter residue one:")
 residue2 = input("Enter residue two:")
@@ -100,12 +101,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 # Define the function to generate the PDF
-def generate_pdf():
+def generate_pdf(image_path):
     # Create a new PDF document with letter size
     c = canvas.Canvas("output.pdf", pagesize=letter)
 
     # Define the print statements to be written to the PDF
-    print_statements = [f"the residue changes from {score}" , "This is a sample PDF generated with Python."]
+    print_statements = [f"the residue changes from {score}", "This is a sample PDF generated with Python."]
 
     # Set the starting position for writing the print statements
     x, y = 50, 750
@@ -115,11 +116,26 @@ def generate_pdf():
         c.drawString(x, y, statement)
         y -= 50
 
+    # Load and add the image to the PDF
+    c.drawImage(image_path, 100, 400, width=300, height=300)  # Adjust the coordinates and size as needed
+
     # Save the PDF document
     c.save()
 
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set the image filename
+image_filename = "logo.png"
+
+# Join the directory path with the image filename
+image_path = os.path.join(current_dir, image_filename)
+
+# Verify the image path
+print("Image Path:", image_path)
+
 # Call the function to generate the PDF
-generate_pdf()
+generate_pdf(image_path)
 
 import mdtraj as md
 
