@@ -30,12 +30,12 @@ retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 5
 session = requests.Session()
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
+
 def get_next_link(headers):
     if "Link" in headers:
         match = re_next_link.match(headers["Link"])
         if match:
             return match.group(1)
-
 
 
 def get_all_isoforms():
@@ -310,7 +310,7 @@ else:
     sasa_answer = "Not a significant change in SASA."
 
 #Function to generate PDF w/ information
-def generate_pdf(paragraphs, filename):
+def generate_pdf(paragraphs, image_path, filename):
     doc = SimpleDocTemplate(filename, pagesize=letter)
     styles = getSampleStyleSheet()
 
@@ -327,6 +327,11 @@ def generate_pdf(paragraphs, filename):
     content = []
     for paragraph in paragraphs:
         content.append(Paragraph(paragraph, styles['UserInputStyle']))
+    
+    # Add the image to the content
+    if image_path:
+        image = Image(image_path, width=4*inch, height=4*inch)
+        content.append(image)
 
     # Build the PDF document
     doc.build(content)
@@ -347,6 +352,19 @@ print_statements = [f"For the gene {gene_name}" ,
                         f"and the overall protein context.",
                         f"Detailed experimental or computational analysis is typically required to accurately assess the impact", 
                         f"of a point mutation on pathogenicity in a specific protein."]
-generate_pdf(print_statements, 'pdfpdf.pdf')
+
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set the image filename
+image_filename = "example_image.jpg"
+
+# Join the directory path with the image filename
+image_path = os.path.join(current_dir, image_filename)
+
+# Verify the image path
+print("Image Path:", image_path)
+
+generate_pdf(print_statements, image_path, 'pdfpdf.pdf')
 
 
