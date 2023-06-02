@@ -129,6 +129,9 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
         print("ERROR")
         return  outfnm
 
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
 def new_method_for_alphafold(pdbcode, datadir):
     new_url = "https://alphafold.ebi.ac.uk/files/AF-" + matching_isoforms[0] + "-F1-model_v4.pdb"
     pdbfn2 = pdbcode + ".pdb"
@@ -143,53 +146,6 @@ def new_method_for_alphafold(pdbcode, datadir):
         return outfnm2
 
 if result is None or result is None:
-    pdbpath = new_method_for_alphafold(matching_isoforms[0], "/Users/asameerpradhan/Desktop")
+    pdbpath = new_method_for_alphafold(matching_isoforms[0], current_dir) #relative path
 else:
-    pdbpath = download_pdb(identifier[0:4], "/Users/asameerpradhan/Desktop")
-
-
-def mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_chain, target_new_resname):
-    """
-    Mutates a residue in a PDB file by changing its residue name.
-
-    Args:
-        input_pdb_path (str): Path to the input PDB file.
-        output_pdb_path (str): Path to the output PDB file.
-        target_resnum (int): Residue number of the target residue to be mutated.
-        target_chain (str): Chain ID of the target residue to be mutated.
-        target_new_resname (str): New residue name for the target residue.
-
-    Returns:
-        None
-    """
-    delete_residues = False
-    with open(input_pdb_path, 'r') as f_in:
-        with open(output_pdb_path, 'w') as f_out:
-            for line in f_in:
-                if line.startswith('ATOM') or line.startswith('HETATM'):
-                    chain = line[21]
-                    resnum = int(line[22:26])
-                    resname = line[17:20]
-                    if chain == target_chain and resnum == target_resnum:
-                        if target_new_resname.lower() in ['ter', 'terminal']:
-                            delete_residues = True
-                            continue
-                        resname = target_new_resname
-                    elif delete_residues:
-                        continue
-                    line = line[:17] + resname + line[20:]
-                f_out.write(line)
-
-# Example usage
-input_pdb_path = pdbpath
-output_pdb_path = 'new_mutated.pdb'
-
-# Get user input for target residue number and mutant name
-target_resnum = int(input("Enter target residue number: "))
-target_chain = input("Enter target chain ID: ")
-target_new_resname = input("Enter new residue name for mutation: ")
-
-mutate_pdb_residue(input_pdb_path, output_pdb_path, target_resnum, target_chain, target_new_resname)
-
-print(f"Successfully mutated residue {target_resnum} in chain {target_chain} to {target_new_resname}.")
-print(f"Mutated PDB file saved as {output_pdb_path}.")
+    pdbpath = download_pdb(identifier[0:4], current_dir)
