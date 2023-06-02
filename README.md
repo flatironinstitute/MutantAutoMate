@@ -4,6 +4,10 @@
 - The script `getPDF2.py` will generate a PDF with relevant descriptions of a given mutant.
 - The script `snapshot.sh` will produce an image of your mutant structure.
 
+Download dependencies after cloning repository with 
+
+`pip install -e.`
+
 Call `snapshot.sh` through the terminal by:
 
 `./snapshot.sh 'file1' 'file2' `
