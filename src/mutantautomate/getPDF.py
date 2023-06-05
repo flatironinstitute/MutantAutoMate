@@ -6,6 +6,17 @@ import mdtraj as md
 from matplotlib import pyplot as plt
 import pandas as pd
 import os
+import mdtraj as md
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib import utils
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem
+import subprocess
+
+#user input gene name
+gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
 
 residue1 = input("Enter residue one:")
 residue2 = input("Enter residue two:")
@@ -61,66 +72,90 @@ def get_charge_change_score(residue1, residue2):
 
 
 score = get_charge_change_score(residue1, residue2)
-#print(score)
-#DSSP secondary structure
-
-import matplotlib.pyplot as plt
-import mdtraj as md
-
-import seaborn as sns
-sns.set(style='white')
-sns.set_context('talk')
-
-traj_file = '/Users/asameerpradhan/Downloads/6kyk.pdb'
-top_file = '/Users/asameerpradhan/Downloads/6kyk.pdb'
-
-traj = md.load(traj_file,top=top_file)
-
-topology = traj.topology
-
-dssp = md.compute_dssp(traj)
-
-if dssp[0][number] == "H":
-    print("alpha-helix structure")
-else:
-    print("not an alpha helix")
 
 
+# Get the directory of the current file
+current_dir2 = os.path.dirname(os.path.abspath(__file__))
+print(current_dir2)
 
-# #SASA graphs(x2) snapshot
-traj = md.load("/Users/asameerpradhan/Downloads/6kyk.pdb")
-sasa = md.shrake_rupley(traj, mode='atom')
-print(type(plt.plot(sasa[0])))
+# Define the bash script command
+bash_script = os.path.join(current_dir2, "snapshot.sh")
 
-# #VDW
-# #image construction
+# Extract the filename from the bash_script path
+filename = os.path.basename(bash_script)
+# Append "snapshot.sh" to the filename
+snapshot_script = os.path.join(current_dir2, filename, "snapshot.sh")
 
-# #add 2 PDF
+file1 = "/Users/asameerpradhan/Downloads/nl_xray_B_D2.pdb"
 
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+# Run the bash script using subprocess with arguments
+output = subprocess.run(["bash", bash_script, file1], capture_output=True, text=True)
 
-# Define the function to generate the PDF
-def generate_pdf(image_path):
+# Extract the output path from the command's standard output
+screenshot = os.path.join(current_dir2, "3.png")
+print(screenshot)
+
+def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
-    c = canvas.Canvas("output.pdf", pagesize=letter)
+    doc = SimpleDocTemplate("output.pdf", pagesize=letter, rightMargin=50)
 
     # Define the print statements to be written to the PDF
-    print_statements = [f"the residue changes from {score}", "This is a sample PDF generated with Python."]
+    print_statements = [f"For the gene {gene_name} the residue at position {number} goes from {residue1} to {residue2}.",
+                        f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
+                        f"{score}.",
+                        f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation will depend on many factors, including the nature of the amino acid change, the location of the mutation within the alpha helix, the role of the affected residue in protein function, and the overall protein context.",
+                        f"Detailed experimental or computational analysis is typically required to accurately assess the impact of a point mutation on pathogenicity in a specific protein."]
 
-    # Set the starting position for writing the print statements
-    x, y = 50, 750
+    # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
+    flowables = []
 
-    # Write the print statements to the PDF
-    for statement in print_statements:
-        c.drawString(x, y, statement)
-        y -= 50
+    # Load and add the logo image to the flowables
+    logo = utils.ImageReader(image_path)
+    logo_width, logo_height = logo.getSize()
+    logo_scale = 0.1  # Adjust the scale as needed
+    logo_width *= logo_scale
+    logo_height *= logo_scale
+    img = Image(image_path, width=logo_width, height=logo_height)
+    img.hAlign = 'RIGHT'  # Align the image to the right side
+    img.top = doc.pagesize[1] - logo_height  # Position the image at the top-right corner
+    flowables.append(img)
 
-    # Load and add the image to the PDF
-    c.drawImage(image_path, 100, 400, width=300, height=300)  # Adjust the coordinates and size as needed
+    # Add the title at the top of the PDF
+    styles = getSampleStyleSheet()
+    title_text = "MutantAutoMate"
+    title = Paragraph(title_text, styles["Title"])
+    flowables.append(title)
 
-    # Save the PDF document
-    c.save()
+    # Create a Bullet List flowable
+    bullet_list = ListFlowable(
+        [
+            ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements
+        ],
+        bulletType="bullet",
+        leftIndent=40,
+        rightIndent=10,
+        start='bulletchar',
+        bulletColor='black',
+        bulletFontName='Helvetica',
+        bulletFontSize=10,
+        bulletOffsetY=-2,
+        bulletDedent='auto',
+        spaceAfter=12
+    )
+    flowables.append(bullet_list)
+
+    # Load and add the screenshot image to the flowables
+    screenshot = utils.ImageReader(screenshot_path)
+    screenshot_width, screenshot_height = screenshot.getSize()
+    screenshot_scale = 0.5  # Adjust the scale as needed
+    screenshot_width *= screenshot_scale
+    screenshot_height *= screenshot_scale
+    screenshot_img = Image(screenshot_path, width=screenshot_width, height=screenshot_height)
+    screenshot_img.hAlign = 'CENTER'  # Align the image to the center
+    flowables.append(screenshot_img)
+
+    # Build the PDF document with the flowables
+    doc.build(flowables)
 
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -131,43 +166,5 @@ image_filename = "logo.png"
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
 
-# Verify the image path
-print("Image Path:", image_path)
-
 # Call the function to generate the PDF
-generate_pdf(image_path)
-
-import mdtraj as md
-
-# Load your PDB file
-traj1 = md.load("/Users/asameerpradhan/Downloads/6kyk.pdb") #main PDB
-traj2 = md.load("/Users/asameerpradhan/Downloads/7sk2.pdb") #mutated PDB from getPDB code
-# Compute the SASA for each frame
-sasa1 = md.shrake_rupley(traj1, mode='atom')
-sasa2 = md.shrake_rupley(traj2, mode='atom')
-print(type(sasa[0]))
-
-#generate SASA PDF
-
-data_1 = sasa1[0]
-data_2 = sasa2[0]
-
-df_1 = pd.DataFrame(data_1)
-df_2 = pd.DataFrame(data_2)
-
-with PdfPages(r'/Users/asameerpradhan/output1.pdf') as export_pdf:
-    plt.plot(sasa1[0])
-    plt.xlabel('residue', fontsize=14)
-    plt.ylabel('sasa', fontsize=14)
-    plt.grid(True)
-    export_pdf.savefig()
-    plt.close()
-
-with PdfPages(r'/Users/asameerpradhan/output2.pdf') as export_pdf:
-    plt.plot(sasa2[0])
-    plt.xlabel('residue(mutated)', fontsize=14)
-    plt.ylabel('sasa(mutated)', fontsize=14)
-    plt.grid(True)
-    export_pdf.savefig()
-    plt.close()
-
+generate_pdf(image_path, screenshot)
