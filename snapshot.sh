@@ -1,22 +1,22 @@
 #!/bin/bash
 
-
 # Get file paths from user input
 file1="$1"
-file2="$2"
-echo $file2
-echo ${file2:32:5}
 
-#create the script
-echo "bg_color white  
+# Extract the name of the PDB file
+pdb_file=$(basename "$file1")
+
+# Create the script
+echo "bg_color white
 
 load $file1
-colour blue, ${file1:32:4}
 
-load $file2
-color red, ${file2:32:5}
+# Select the residue and color it differently
+select resi 100
+color red, resi 100
 
-align ${file1:32:4}, ${file2:32:5}
+# Zoom into the selected residue
+zoom resi 100
 
 set label_size, -3
 set label_color, black
@@ -29,5 +29,5 @@ ray
 png 3.png, width=800, height=600, dpi=300
 quit" > try1.pml
 
-# GO!
+# Run the script with PyMOL
 pymol -c try1.pml
