@@ -20,12 +20,17 @@ import pandas as pd
 import os
 import mdtraj as md
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
+from reportlab.pdfgen import can23
+vas
 from reportlab.lib import utils
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem
 import subprocess
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 #user input gene name
 gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
@@ -76,7 +81,7 @@ matching_isoforms = search_residue(residue, position)
 if len(matching_isoforms) > 0:
     print(f"The residue {residue} is present at position {position} in the following isoform(s):")
     for isoform in matching_isoforms:
-        print(isoform)
+        random_variable = "I dont know why im getting an err"
 else:
     print(f"The residue {residue} is not present at position {position} in any of the isoforms.")
 
@@ -117,7 +122,7 @@ else:
         if result['score'] > highest_score:
             highest_score = result['score']
             identifier = result['identifier']
-    print("Identifier with the highest score:", identifier[0:4])
+    #print("Identifier with the highest score:", identifier[0:4])
 
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
     """
@@ -134,7 +139,7 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
     try:
         urllib.request.urlretrieve(url, outfnm)
         #print(url)
-        print(outfnm)
+        #print(outfnm)
         return outfnm
     except Exception as err:
         print("ERROR")
@@ -147,10 +152,10 @@ def new_method_for_alphafold(pdbcode, datadir):
     new_url = "https://alphafold.ebi.ac.uk/files/AF-" + matching_isoforms[0] + "-F1-model_v4.pdb"
     pdbfn2 = pdbcode + ".pdb"
     outfnm2 = os.path.join(datadir, pdbfn2)
-    print(new_url)
+    #print(new_url)
     try: 
         urllib.request.urlretrieve(new_url, outfnm2)
-        print(outfnm2)
+        #print(outfnm2)
         return outfnm2
     except Exception as err:
         print("ERROR")
@@ -208,9 +213,8 @@ def get_charge_change_score(residue1, residue2):
     residue1_charge = aa_charge_dict[residue1]
     residue2_charge = aa_charge_dict[residue2]
     
-    # print(f"residue1: {residue1}")
-    # print(f"residue2: {residue2}")
-    print("Charge change from", f"{residue1_charge}", "to", f"{residue2_charge}")
+   
+    #print("Charge change from", f"{residue1_charge}", "to", f"{residue2_charge}")
 
 
 score = get_charge_change_score(residue, residue2)
@@ -218,7 +222,7 @@ score = get_charge_change_score(residue, residue2)
 
 # Get the directory of the current file
 current_dir2 = os.path.dirname(os.path.abspath(__file__))
-print(current_dir2)
+#print(current_dir2)
 
 # Define the bash script command
 bash_script = os.path.join(current_dir2, "snapshot.sh")
@@ -235,7 +239,7 @@ output = subprocess.run(["bash", bash_script, file1], capture_output=True, text=
 
 # Extract the output path from the command's standard output
 screenshot = os.path.join(current_dir2, "3.png")
-print(screenshot)
+#print(screenshot)
 
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
@@ -243,6 +247,7 @@ def generate_pdf(image_path, screenshot_path):
 
     # Define the print statements to be written to the PDF
     print_statements = [f"For the gene {gene_name} the residue at position {position} goes from {residue} to {residue2}.",
+                        f"The Uniprot ID for the matched isoform is {isoform}",
                         f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
                         f"{score}.",
                         f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation will depend on many factors, including the nature of the amino acid change, the location of the mutation within the alpha helix, the role of the affected residue in protein function, and the overall protein context.",
