@@ -10,7 +10,9 @@ import urllib
 import urllib.request
 import urllib.request
 from pathlib import Path
+import warnings
 
+warnings.filterwarnings("ignore", category=UserWarning)
 
 #user input gene name
 gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
@@ -63,7 +65,7 @@ matching_isoforms = search_residue(residue, position)
 if len(matching_isoforms) > 0:
     print(f"The residue {residue} is present at position {position} in the following isoform(s):")
     for isoform in matching_isoforms:
-        print(isoform)
+        random_variable = "A"
 else:
     print(f"The residue {residue} is not present at position {position} in any of the isoforms.")
 
@@ -122,8 +124,8 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
     outfnm = os.path.join(datadir, pdbfn)
     try:
         urllib.request.urlretrieve(url, outfnm)
-        print(url)
-        print(outfnm)
+        #print(url)
+        #print(outfnm)
         return outfnm
     except Exception as err:
         print("ERROR")
@@ -136,10 +138,10 @@ def new_method_for_alphafold(pdbcode, datadir):
     new_url = "https://alphafold.ebi.ac.uk/files/AF-" + matching_isoforms[0] + "-F1-model_v4.pdb"
     pdbfn2 = pdbcode + ".pdb"
     outfnm2 = os.path.join(datadir, pdbfn2)
-    print(new_url)
+    #print(new_url)
     try: 
         urllib.request.urlretrieve(new_url, outfnm2)
-        print(outfnm2)
+        #print(outfnm2)
         return outfnm2
     except Exception as err:
         print("ERROR")
