@@ -31,9 +31,6 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-#user input gene name
-gene_name = input("Enter the gene you want to search for (e.g., SHANK3): ")
-
 re_next_link = re.compile(r'<(.+)>; rel="next"')
 retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])
 session = requests.Session()
@@ -73,16 +70,20 @@ def search_residue(residue, position):
     return matching_isoforms
 
 
+input_string = input("Enter the gene name and residue information (e.g., SHANK3 D26): ")
+gene_name, residue_info = input_string.split()
+residue = residue_info[0]
+position = int(residue_info[1:])
 
-residue = input("Enter the residue you want to search for (e.g., D): ")
-position = int(input("Enter the position of the residue you want to search for (e.g., 26): "))
 matching_isoforms = search_residue(residue, position)
 if len(matching_isoforms) > 0:
-    print(f"The residue {residue} is present at position {position} in the following isoform(s):")
+    #print(f"The residue {residue} is present at position {position} in the following isoform(s):")
+    a = "The residue {residue} is present at position {position} in the following isoform(s):"
     for isoform in matching_isoforms:
         random_variable = "I dont know why im getting an err"
 else:
-    print(f"The residue {residue} is not present at position {position} in any of the isoforms.")
+    #print(f"The residue {residue} is not present at position {position} in any of the isoforms.")
+    a = "The residue {residue} is not present at position {position} in any of the isoforms."
 
 
 #first uniprot match to fasta sequence
