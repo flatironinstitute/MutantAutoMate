@@ -233,12 +233,12 @@ filename = os.path.basename(bash_script)
 snapshot_script = os.path.join(current_dir2, filename, "snapshot.sh")
 
 file1 = pdbpath
-
+converted_position = str(position)
 # Run the bash script using subprocess with arguments
-output = subprocess.run(["bash", bash_script, file1], capture_output=True, text=True)
+output = subprocess.run(["bash", bash_script, file1, converted_position], capture_output=True, text=True)
 
 # Extract the output path from the command's standard output
-screenshot = os.path.join(current_dir2, "3.png")
+screenshot = os.path.join(current_dir2, "snap.png")
 #print(screenshot)
 
 def generate_pdf(image_path, screenshot_path):
