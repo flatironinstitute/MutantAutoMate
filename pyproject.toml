@@ -20,4 +20,5 @@ dependencies = [
     "matplotlib",
     "fpdf",
     "Bio",
+    "chardet",
 ]
