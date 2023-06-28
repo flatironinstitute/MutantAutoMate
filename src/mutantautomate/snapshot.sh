@@ -21,8 +21,8 @@ select resi ${residue_number}
 color red, res ${residue_number}
 
 #cartoon for residue and sticks for protein
-cartoon oval, res ${residue_number}
-show sticks
+sticks oval, res ${residue_number}
+show cartoon
 
 #rotate for better visibility
 rotate [1,1,1], ${residue_number}, chain A
