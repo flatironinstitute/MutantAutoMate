@@ -3,6 +3,7 @@ from requests.adapters import HTTPAdapter, Retry
 import re
 from pypdb import *
 from bioservices import *
+import numpy as np
 from pypdb import *
 import os
 import sys
@@ -171,7 +172,7 @@ residue2 = input("Enter residue two:")
 
 #charge change
 #1 charge
-def get_charge_change_score(residue1, residue2):
+def charge_statement(residue1, residue2):
     aa_charge_dict = {
         "A": "non-polar",
         "C": "polar",
@@ -214,15 +215,14 @@ def get_charge_change_score(residue1, residue2):
     residue2_charge = aa_charge_dict[residue2]
     
    
-    #print("Charge change from", f"{residue1_charge}", "to", f"{residue2_charge}")
+    score = f"{residue_info}"+ " is a mutation from a "+f"{residue1_charge}"+" charged amino acid to a "+f"{residue2_charge}"+" amino acid"
+    return score
 
 
-score = get_charge_change_score(residue, residue2)
-
+score = charge_statement(residue, residue2)
 
 # Get the directory of the current file
 current_dir2 = os.path.dirname(os.path.abspath(__file__))
-#print(current_dir2)
 
 # Define the bash script command
 bash_script = os.path.join(current_dir2, "snapshot.sh")
@@ -239,19 +239,71 @@ output = subprocess.run(["bash", bash_script, file1, converted_position], captur
 
 # Extract the output path from the command's standard output
 screenshot = os.path.join(current_dir2, "snap.png")
-#print(screenshot)
+
+# Load your protein trajectory and topology using mdtraj
+traj = md.load(pdbpath)
+topology = traj.topology
+
+# Compute the RMSD of each frame in the trajectory to a reference structure
+reference_frame = traj[0]  # Assuming the first frame is your reference
+rmsd = md.rmsd(traj, reference_frame)
+
+# Compute the SASA for each residue in each frame
+sasa = md.shrake_rupley(traj)
+
+# Choose a threshold for RMSD and SASA to determine the structured region
+rmsd_threshold = 0.3  # Adjust as per your requirements
+sasa_threshold = 10.0  # Adjust as per your requirements
+
+# Ensure that rmsd and sasa have the same number of frames
+num_frames = min(rmsd.shape[0], sasa.shape[0])
+rmsd = rmsd[:num_frames]
+sasa = sasa[:num_frames]
+
+# Find the frames where the RMSD and SASA values are below the thresholds
+structured_frames = (rmsd < rmsd_threshold) & (sasa[:, :, np.newaxis] > sasa_threshold)
+
+# Find the residues that are present in the structured frames
+structured_residues = []
+for residue in topology.residues:
+    residue_frames = structured_frames[:, residue.index]
+    if residue_frames.any():
+        structured_residues.append(residue)
+
+target_residue_code = 'L'  # Modify this to the desired amino acid code
+target_position = 27  # Modify this to the desired residue position
+
+target_residue_name = topology.residue(target_position).name
+
+if target_residue_name is None:
+    print(f'Invalid amino acid code: {target_residue_code}')
+else:
+    # Check if the target residue is present in the structured frames
+    target_residue_index = topology.residue(target_position).index
+    residue_frames = structured_frames[:, target_residue_index]
+    if residue_frames.any():
+        structured_or_not =(f'Residue {residue_info} {residue2} at position {target_position} is in a structured part of the protein.')
+    else:
+        structured_or_not = (f'Residue {residue_info} {residue2}at position {target_position} is not in a structured part of the protein.')
+
+print("For gene " + gene_name + ", " + str(residue_info) + str(residue2) + "is a mutation from " + str(score) + ". \n" +gene_name + "_" + residue_info + str(residue2) + structured_or_not)     
 
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
-    doc = SimpleDocTemplate("output.pdf", pagesize=letter, rightMargin=50)
+    name = gene_name + "_" + residue_info + str(residue2)
+    print(name)
+    doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
 
     # Define the print statements to be written to the PDF
     print_statements = [f"For the gene {gene_name} the residue at position {position} goes from {residue} to {residue2}.",
                         f"The Uniprot ID for the matched isoform is {isoform}",
                         f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-                        f"{score}.",
-                        f"It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation will depend on many factors, including the nature of the amino acid change, the location of the mutation within the alpha helix, the role of the affected residue in protein function, and the overall protein context.",
-                        f"Detailed experimental or computational analysis is typically required to accurately assess the impact of a point mutation on pathogenicity in a specific protein."]
+                        f"{score}."]
+        # Modify the print_statements list to include the additional lines
+    print_statements.extend([
+        "It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation will depend on many factors, including the nature of the amino acid change, the location of the mutation within the alpha helix, the role of the affected residue in protein function, and the overall protein context.",
+        "Detailed experimental or computational analysis is typically required to accurately assess the impact of a point mutation on pathogenicity in a specific protein."
+    ])
 
     # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
     flowables = []
@@ -303,6 +355,7 @@ def generate_pdf(image_path, screenshot_path):
 
     # Build the PDF document with the flowables
     doc.build(flowables)
+    print("Your PDF summary for this mutant has been created!")
 
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
