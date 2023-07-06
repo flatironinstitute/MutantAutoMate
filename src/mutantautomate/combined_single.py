@@ -67,7 +67,6 @@ def search_residue(residue, position):
     for isoform, sequence in all_isoforms:
         if len(sequence) > position-1 and sequence[position-1] == residue:
             matching_isoforms.append(isoform)
-            #print(isoform)
     return matching_isoforms
 
 
