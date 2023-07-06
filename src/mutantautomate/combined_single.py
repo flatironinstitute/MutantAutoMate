@@ -74,6 +74,7 @@ def search_residue(residue, position):
 input_string = input("Enter the gene name and residue information (e.g., SHANK3 D26): ")
 gene_name, residue_info = input_string.split()
 residue = residue_info[0]
+
 position = int(residue_info[1:])
 
 matching_isoforms = search_residue(residue, position)
@@ -107,7 +108,6 @@ for rec in records:
     
 
 fasta_io.close() 
-
 
 q = Query(seq_str[0:54], 
           query_type="sequence", 
@@ -170,6 +170,34 @@ else:
 #getPDF.py
 residue2 = input("Enter residue two:")
 
+# Separate the letter and number parts
+res = residue_info[0]
+number = int(residue_info[1:])
+
+# Define the amino acid dictionary
+amino_acids = {
+    'A': 'Alanine',
+    'C': 'Cysteine',
+    'D': 'Aspartic Acid',
+    'E': 'Glutamic Acid',
+    'F': 'Phenylalanine',
+    'G': 'Glycine',
+    'H': 'Histidine',
+    'I': 'Isoleucine',
+    'K': 'Lysine',
+    'L': 'Leucine',
+    'M': 'Methionine',
+    'N': 'Asparagine',
+    'P': 'Proline',
+    'Q': 'Glutamine',
+    'R': 'Arginine',
+    'S': 'Serine',
+    'T': 'Threonine',
+    'V': 'Valine',
+    'W': 'Tryptophan',
+    'Y': 'Tyrosine'
+}
+
 #charge change
 #1 charge
 def charge_statement(residue1, residue2):
@@ -215,12 +243,11 @@ def charge_statement(residue1, residue2):
     residue2_charge = aa_charge_dict[residue2]
     
    
-    score = f"{residue_info}"+ " is a mutation from a "+f"{residue1_charge}"+" charged amino acid to a "+f"{residue2_charge}"+" amino acid"
+    score = f"{amino_acids.get(res)} at position {position} to {amino_acids.get(residue2)}"+ " is a mutation from a "+f"{residue1_charge}"+" charged amino acid to a "+f"{residue2_charge}"+" amino acid"
     return score
 
 
 score = charge_statement(residue, residue2)
-
 # Get the directory of the current file
 current_dir2 = os.path.dirname(os.path.abspath(__file__))
 
@@ -282,21 +309,27 @@ else:
     target_residue_index = topology.residue(target_position).index
     residue_frames = structured_frames[:, target_residue_index]
     if residue_frames.any():
-        structured_or_not =(f'Residue {residue_info} {residue2} at position {target_position} is in a structured part of the protein.')
+        structured_or_not =(f'Residue {residue_info}  is in a structured part of the protein.')
     else:
-        structured_or_not = (f'Residue {residue_info} {residue2}at position {target_position} is not in a structured part of the protein.')
+        structured_or_not = (f'Residue {residue_info} is not in a structured part of the protein.')
 
-print("For gene " + gene_name + ", " + str(residue_info) + str(residue2) + "is a mutation from " + str(score) + ". \n" +gene_name + "_" + residue_info + str(residue2) + structured_or_not)     
+print("For gene " + gene_name + ", " + str(residue_info) + str(residue2) + "is a mutation from " + str(score) + ". \n" +  structured_or_not)     
+
+
+# Lookup the full name using the dictionary
+full_name = amino_acids.get(res)
 
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue_info + str(residue2)
-    print(name)
+
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
 
     # Define the print statements to be written to the PDF
-    print_statements = [f"For the gene {gene_name} the residue at position {position} goes from {residue} to {residue2}.",
+    print_statements = [f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
+                        f"For the gene {gene_name} the residue {amino_acids.get(res)} at position {position} goes from {amino_acids.get(res)} to {amino_acids.get(residue2)}.",
                         f"The Uniprot ID for the matched isoform is {isoform}",
+                        f"Matching Uniprot IDs were: {matching_isoforms}", 
                         f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
                         f"{score}."]
         # Modify the print_statements list to include the additional lines
