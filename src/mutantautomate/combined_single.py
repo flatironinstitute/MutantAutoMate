@@ -1,6 +1,8 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 import re
+from io import StringIO
+from Bio import SeqIO
 from pypdb import *
 from bioservices import *
 import numpy as np
@@ -91,10 +93,6 @@ else:
 u = UniProt()
 sequence = u.retrieve(matching_isoforms[0],"fasta")
 
-
-from io import StringIO
-from Bio import SeqIO
-
 fasta_string = sequence
 
 
@@ -112,8 +110,10 @@ q = Query(seq_str[0:54],
           query_type="sequence", 
           return_type="polymer_entity")
 result = q.search()
+
 if result is None or result is None:
     pdbnewcode = matching_isoforms[0]
+    
 
 else:
     highest_score = -1.0
@@ -122,7 +122,8 @@ else:
         if result['score'] > highest_score:
             highest_score = result['score']
             identifier = result['identifier']
-    #print("Identifier with the highest score:", identifier[0:4])
+    print("Identifier with the highest score:", identifier[0:4])
+    
 
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
     """
@@ -327,7 +328,7 @@ def generate_pdf(image_path, screenshot_path):
     # Define the print statements to be written to the PDF
     print_statements = [f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
                         f"For the gene {gene_name} the residue {amino_acids.get(res)} at position {position} goes from {amino_acids.get(res)} to {amino_acids.get(residue2)}.",
-                        f"The Uniprot ID for the matched isoform is {isoform}",
+                        f"The Uniprot ID for the matched isoform is {matching_isoforms[0]}",
                         f"Matching Uniprot IDs were: {matching_isoforms}", 
                         f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
                         f"{score}."]
