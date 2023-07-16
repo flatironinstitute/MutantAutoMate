@@ -94,16 +94,38 @@ position = int(residue_info[1:])
 
 # Search for matching isoforms
 matching_isoforms = search_residue(residue, position, gene_name)
-print(matching_isoforms)
+#print(matching_isoforms)
+
+def get_gene_name(uniprot_id):
+    url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
+    response = requests.get(url)
+    lines = response.text.split("\n")
+    for line in lines:
+        if line.startswith("GN   Name="):
+            gene_name = line.split("GN   Name=")[1].split(";")[0]
+            return gene_name
+    return None
+
+# Function to calculate the gene name for each isoform and filter isoforms with different gene names
+def filter_isoforms_by_gene(matching_isoforms, gene_name):
+    filtered_isoforms = []
+    for isoform in matching_isoforms:
+        gene_name_isoform = get_gene_name(isoform)
+        if gene_name_isoform == gene_name:
+            filtered_isoforms.append(isoform)
+    return filtered_isoforms
+
+# Filter isoforms by gene name
+matching_isoforms = filter_isoforms_by_gene(matching_isoforms, gene_name)
 
 if len(matching_isoforms) > 0:
     # Select the correct isoform
     selected_isoform = max(matching_isoforms, key=lambda isoform: len(isoform))
     isoform_id = selected_isoform[0:6]
-    print(isoform_id)
+    #print(isoform_id)
     isoform_sequence = next((isoform[1] for isoform in matching_isoforms if isoform[0] == isoform_id), None)
     isoform_url = f"https://www.uniprot.org/uniprot/{isoform_id}"
-    print(isoform_url)
+    #print(isoform_url)
 
 
 # Function to calculate similarity between two sequences using PairwiseAligner
@@ -136,12 +158,12 @@ def score_isoforms_by_similarity(gene_name, isoforms):
 # Create UniProt object
 u = UniProt()
 
-
 # Retrieve the sequence for the selected isoform
-sequence = u.retrieve(isoform_id, "fasta")
-print(isoform_id)
+sequence = u.retrieve(matching_isoforms[0:6], "fasta")
 fasta_string = sequence
-uniprot_id = isoform_id
+only_element = matching_isoforms[0]
+uniprot_id = only_element[0:6]
+print(uniprot_id)
 
 # Retrieve the entry for the specified UniProt ID
 entry = u.retrieve(uniprot_id, "txt")
@@ -158,6 +180,7 @@ fasta_io.close()
 
 q = Query(seq_str[0:54], query_type="sequence", return_type="polymer_entity")
 result = q.search()
+#print(result)
 
 if result is None or result is None:
     pdbnewcode = uniprot_id
