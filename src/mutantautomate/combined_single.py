@@ -238,6 +238,29 @@ else:
 # Get user input for residue two
 residue2 = input("Enter residue two:")
 
+# Define the dictionary of amino acid names
+amino_acids = {
+    'A': 'Alanine',
+    'C': 'Cysteine',
+    'D': 'Aspartic Acid',
+    'E': 'Glutamic Acid',
+    'F': 'Phenylalanine',
+    'G': 'Glycine',
+    'H': 'Histidine',
+    'I': 'Isoleucine',
+    'K': 'Lysine',
+    'L': 'Leucine',
+    'M': 'Methionine',
+    'N': 'Asparagine',
+    'P': 'Proline',
+    'Q': 'Glutamine',
+    'R': 'Arginine',
+    'S': 'Serine',
+    'T': 'Threonine',
+    'V': 'Valine',
+    'W': 'Tryptophan',
+    'Y': 'Tyrosine'
+}
 
 # Function to determine the charge change between two residues
 def charge_statement(residue1, residue2):
@@ -417,7 +440,7 @@ def generate_pdf(image_path, screenshot_path):
     # Define the print statements to be written to the PDF
     print_statements = [
         f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
-        f"For the gene {gene_name}, the residue {amino_acids.get(res)} at position {position} goes from {amino_acids.get(res)} to {amino_acids.get(residue2)}.",
+        f"For the gene {gene_name}, the residue {amino_acids.get(residue)} at position {position} goes from {amino_acids.get(residue)} to {amino_acids.get(residue2)}.",
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
