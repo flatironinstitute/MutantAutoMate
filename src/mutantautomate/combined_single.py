@@ -31,6 +31,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable
 import subprocess
 import warnings
 
+from Bio.Align import PairwiseAligner
+
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=BiopythonDeprecationWarning)
@@ -45,12 +47,14 @@ retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 5
 session = requests.Session()
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
+
 # Function to retrieve the next link from HTTP response headers
 def get_next_link(headers):
     if "Link" in headers:
         match = re_next_link.match(headers["Link"])
         if match:
             return match.group(1)
+
 
 # Function to retrieve all isoforms for a given gene name
 def get_all_isoforms(gene_name):
@@ -71,6 +75,7 @@ def get_all_isoforms(gene_name):
         batch_url = get_next_link(response.headers)
     return isoforms
 
+
 # Function to search for a specific residue at a position in isoforms of a gene
 def search_residue(residue, position, gene_name):
     matching_isoforms = []
@@ -80,6 +85,7 @@ def search_residue(residue, position, gene_name):
             matching_isoforms.append(isoform)
     return matching_isoforms
 
+
 # User input for gene name and residue information
 input_string = input("Enter the gene name and residue information (e.g., SHANK3 D26): ")
 gene_name, residue_info = input_string.split()
@@ -88,6 +94,7 @@ position = int(residue_info[1:])
 
 # Search for matching isoforms
 matching_isoforms = search_residue(residue, position, gene_name)
+#print(matching_isoforms)
 
 def get_gene_name(uniprot_id):
     url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
@@ -111,6 +118,47 @@ def filter_isoforms_by_gene(matching_isoforms, gene_name):
 # Filter isoforms by gene name
 matching_isoforms = filter_isoforms_by_gene(matching_isoforms, gene_name)
 
+if len(matching_isoforms) > 0:
+    # Select the correct isoform
+    selected_isoform = max(matching_isoforms, key=lambda isoform: len(isoform))
+    isoform_id = selected_isoform[0:6]
+    #print(isoform_id)
+    isoform_sequence = next((isoform[1] for isoform in matching_isoforms if isoform[0] == isoform_id), None)
+    isoform_url = f"https://www.uniprot.org/uniprot/{isoform_id}"
+    #print(isoform_url)
+else:
+    print("Didn't find any matching isoforms for given selection.")
+    sys.exit(0)  # Exit the script if no matching isoforms are found
+
+# Rest of the code...
+
+# Function to calculate similarity between two sequences using PairwiseAligner
+def calculate_similarity(sequence1, sequence2):
+    aligner = PairwiseAligner()
+    aligner.mode = 'global'
+    aligner.match_score = 1
+    aligner.mismatch_score = -1
+    alignments = aligner.align(sequence1, sequence2)
+    best_alignment = alignments[0]
+    alignment_score = best_alignment.score
+    alignment_length = len(best_alignment)
+    similarity = alignment_score / alignment_length * 100
+    return similarity
+
+
+# Function to score isoforms based on similarity to the gene sequence
+def score_isoforms_by_similarity(gene_name, isoforms):
+    scored_isoforms = []
+    for isoform in isoforms:
+        u = UniProt()
+        entry = u.retrieve(isoform, "fasta")
+        sequence = ''.join(entry.strip().split('\n')[1:])
+        similarity = calculate_similarity(gene_name, sequence)
+        scored_isoforms.append((isoform, similarity))
+    scored_isoforms.sort(key=lambda x: x[1], reverse=True)
+    return scored_isoforms
+
+
 # Create UniProt object
 u = UniProt()
 
@@ -124,16 +172,19 @@ print(uniprot_id)
 # Retrieve the entry for the specified UniProt ID
 entry = u.retrieve(uniprot_id, "txt")
 sequence = u.retrieve(uniprot_id, "fasta")
+
 fasta_string = sequence
 
 fasta_io = StringIO(fasta_string)
 records = SeqIO.parse(fasta_io, "fasta")
 for rec in records:
     seq_str = str(rec.seq)
+
 fasta_io.close()
 
 q = Query(seq_str[0:54], query_type="sequence", return_type="polymer_entity")
 result = q.search()
+#print(result)
 
 if result is None or result is None:
     pdbnewcode = uniprot_id
@@ -145,6 +196,7 @@ else:
             highest_score = result['score']
             identifier = result['identifier']
     print("Identifier with the highest score:", identifier[0:4])
+
 
 # Function to download a PDB file from the Internet
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
@@ -158,12 +210,14 @@ def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/
         print("ERROR")
         return outfnm
 
+
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 # Function to download a PDB file using the new method for AlphaFold
 def new_method_for_alphafold(pdbcode, datadir):
-    new_url = "https://alphafold.ebi.ac.uk/files/AF-" + matching_isoforms[0] + "-F1-model_v4.pdb"
+    new_url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_id + "-F1-model_v4.pdb"
     pdbfn2 = pdbcode + ".pdb"
     outfnm2 = os.path.join(datadir, pdbfn2)
     try:
@@ -173,14 +227,17 @@ def new_method_for_alphafold(pdbcode, datadir):
         print("ERROR")
         return outfnm2
 
+
 # Download or use the new method to get the PDB file
 if result is None or result is None:
-    pdbpath = new_method_for_alphafold(matching_isoforms[0], current_dir)  # relative path
+    pdbpath = new_method_for_alphafold(uniprot_id, current_dir)  # relative path
 else:
     pdbpath = download_pdb(identifier[0:4], current_dir)
 
+
 # Get user input for residue two
 residue2 = input("Enter residue two:")
+
 
 # Function to determine the charge change between two residues
 def charge_statement(residue1, residue2):
@@ -230,52 +287,67 @@ def charge_statement(residue1, residue2):
     )
     return score
 
+
 # Get the charge change score
 score = charge_statement(residue, residue2)
+
 
 # Define the path for the snapshot script
 bash_script = os.path.join(current_dir, "snapshot.sh")
 
+
 # Extract the filename from the bash_script path
 filename = os.path.basename(bash_script)
+
 
 # Append "snapshot.sh" to the filename
 snapshot_script = os.path.join(current_dir, filename, "snapshot.sh")
 
+
 # Set file1 to the pdbpath
 file1 = pdbpath
+
 
 # Convert the position to string
 converted_position = str(position)
 
+
 # Run the bash script using subprocess with arguments
 output = subprocess.run(["bash", bash_script, file1, converted_position], capture_output=True, text=True)
 
+
 # Extract the output path from the command's standard output
 screenshot = os.path.join(current_dir, "snap.png")
+
 
 # Load the protein trajectory and topology using mdtraj
 traj = md.load(pdbpath)
 topology = traj.topology
 
+
 # Compute the RMSD of each frame in the trajectory to a reference structure
 reference_frame = traj[0]  # Assuming the first frame is your reference
 rmsd = md.rmsd(traj, reference_frame)
 
+
 # Compute the SASA for each residue in each frame
 sasa = md.shrake_rupley(traj)
+
 
 # Choose thresholds for RMSD and SASA to determine the structured region
 rmsd_threshold = 0.3  # Adjust as per your requirements
 sasa_threshold = 10.0  # Adjust as per your requirements
+
 
 # Ensure that rmsd and sasa have the same number of frames
 num_frames = min(rmsd.shape[0], sasa.shape[0])
 rmsd = rmsd[:num_frames]
 sasa = sasa[:num_frames]
 
+
 # Find the frames where the RMSD and SASA values are below the thresholds
 structured_frames = (rmsd < rmsd_threshold) & (sasa[:, :, np.newaxis] > sasa_threshold)
+
 
 # Find the residues that are present in the structured frames
 structured_residues = []
@@ -284,8 +356,10 @@ for residue in topology.residues:
     if residue_frames.any():
         structured_residues.append(residue)
 
+
 target_residue_code = 'L'  # Modify this to the desired amino acid code
 target_position = 27  # Modify this to the desired residue position
+
 
 target_residue_name = topology.residue(target_position).name
 
@@ -300,12 +374,14 @@ else:
     else:
         structured_or_not = f"Residue {residue_info} is not in a structured part of the protein."
 
+
 # Generate the final output message
 output_message = (
     "For gene " + gene_name + ", " + str(residue_info) + str(residue2) + " is a mutation from " + str(score) + ".\n" +
     structured_or_not
 )
 print(output_message)
+
 
 # Define the dictionary of amino acid names
 amino_acids = {
@@ -330,6 +406,7 @@ amino_acids = {
     'W': 'Tryptophan',
     'Y': 'Tyrosine'
 }
+
 
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
@@ -405,14 +482,18 @@ def generate_pdf(image_path, screenshot_path):
     doc.build(flowables)
     print("Your PDF summary for this mutant has been created!")
 
+
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 # Set the image filename
 image_filename = "logo.png"
 
+
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
+
 
 # Call the function to generate the PDF
 generate_pdf(image_path, screenshot)
