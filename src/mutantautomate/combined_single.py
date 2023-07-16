@@ -118,43 +118,6 @@ def filter_isoforms_by_gene(matching_isoforms, gene_name):
 # Filter isoforms by gene name
 matching_isoforms = filter_isoforms_by_gene(matching_isoforms, gene_name)
 
-if len(matching_isoforms) > 0:
-    # Select the correct isoform
-    selected_isoform = max(matching_isoforms, key=lambda isoform: len(isoform))
-    isoform_id = selected_isoform[0:6]
-    #print(isoform_id)
-    isoform_sequence = next((isoform[1] for isoform in matching_isoforms if isoform[0] == isoform_id), None)
-    isoform_url = f"https://www.uniprot.org/uniprot/{isoform_id}"
-    #print(isoform_url)
-
-
-# Function to calculate similarity between two sequences using PairwiseAligner
-def calculate_similarity(sequence1, sequence2):
-    aligner = PairwiseAligner()
-    aligner.mode = 'global'
-    aligner.match_score = 1
-    aligner.mismatch_score = -1
-    alignments = aligner.align(sequence1, sequence2)
-    best_alignment = alignments[0]
-    alignment_score = best_alignment.score
-    alignment_length = len(best_alignment)
-    similarity = alignment_score / alignment_length * 100
-    return similarity
-
-
-# Function to score isoforms based on similarity to the gene sequence
-def score_isoforms_by_similarity(gene_name, isoforms):
-    scored_isoforms = []
-    for isoform in isoforms:
-        u = UniProt()
-        entry = u.retrieve(isoform, "fasta")
-        sequence = ''.join(entry.strip().split('\n')[1:])
-        similarity = calculate_similarity(gene_name, sequence)
-        scored_isoforms.append((isoform, similarity))
-    scored_isoforms.sort(key=lambda x: x[1], reverse=True)
-    return scored_isoforms
-
-
 # Create UniProt object
 u = UniProt()
 
