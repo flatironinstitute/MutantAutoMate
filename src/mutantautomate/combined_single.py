@@ -2,6 +2,7 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 import re
+import ast
 from io import StringIO
 from Bio import SeqIO
 from pypdb import *
@@ -430,6 +431,37 @@ amino_acids = {
     'Y': 'Tyrosine'
 }
 
+def calculate_grantham_score(grantham_dict, aa1, aa2):
+    key = (aa1, aa2)
+    if key in grantham_dict:
+        return grantham_dict[key]
+    else:
+        print(f"Grantham score not available for ({aa1}, {aa2})")
+        return None
+
+if __name__ == "__main__":
+    # Load the Grantham dictionary from the output file
+    output_file = "grantham_output.txt"
+    with open(output_file, "r") as f:
+        grantham_dict = ast.literal_eval(f.read())
+
+    # Take user input for amino acids
+    amino_acid1 = residue_info[0]#input("Enter the first amino acid: ").upper()
+    amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
+
+    score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
+
+    threshold = 100  # Define the threshold value for high Grantham score
+
+#Add to PDF
+    if score is not None:
+        print(f"The Grantham score between {amino_acid1} and {amino_acid2} is {score}.")
+        grantham_output = "The Grantham score between {amino_acid1} and {amino_acid2} is {score}."
+
+        if score > threshold:
+            print("This is a high Grantham score, indicating a potentially significant evolutionary distance.")
+            grantham_output = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
+
 
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
@@ -444,7 +476,7 @@ def generate_pdf(image_path, screenshot_path):
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        f"{score}."
+        f"{grantham_output}."
     ]
 
     # Modify the print_statements list to include the additional lines
