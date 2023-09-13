@@ -459,7 +459,7 @@ if __name__ == "__main__":
         grantham_output = "The Grantham score between {amino_acid1} and {amino_acid2} is {score}."
 
         if score > threshold:
-            print("This is a high Grantham score, indicating a potentially significant evolutionary distance.")
+            print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
             grantham_output = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
 
 
@@ -472,7 +472,7 @@ def generate_pdf(image_path, screenshot_path):
     # Define the print statements to be written to the PDF
     print_statements = [
         f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
-        f"For the gene {gene_name}, the residue {amino_acids.get(residue)} at position {position} goes from {amino_acids.get(residue)} to {amino_acids.get(residue2)}.",
+        f"For the gene {gene_name}, the residue {residue_info[0]} at position {position} goes from {residue_info[0]} to {amino_acids.get(residue2)}.",
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
