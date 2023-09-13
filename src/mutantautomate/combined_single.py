@@ -1,5 +1,9 @@
 # Import required libraries
 import requests
+#import requests
+from bs4 import BeautifulSoup
+import urllib.parse
+import json
 from requests.adapters import HTTPAdapter, Retry
 import re
 import ast
@@ -157,9 +161,10 @@ def score_isoforms_by_similarity(gene_name, isoforms):
         similarity = calculate_similarity(gene_name, sequence)
         scored_isoforms.append((isoform, similarity))
     scored_isoforms.sort(key=lambda x: x[1], reverse=True)
-    return scored_isoforms
+    return scored_isoforms[:3]  # Return the top 3 scored isoforms
 
-
+# Retrieve the sequence for the selected isoforms and return the top 3 isoforms
+top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
 # Create UniProt object
 u = UniProt()
 
@@ -170,33 +175,46 @@ only_element = matching_isoforms[0]
 uniprot_id = only_element[0:6]
 print(uniprot_id)
 
-# Retrieve the entry for the specified UniProt ID
-entry = u.retrieve(uniprot_id, "txt")
-sequence = u.retrieve(uniprot_id, "fasta")
 
-fasta_string = sequence
 
-fasta_io = StringIO(fasta_string)
-records = SeqIO.parse(fasta_io, "fasta")
-for rec in records:
-    seq_str = str(rec.seq)
+# Define the URL for UniProt data
+url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}"
 
-fasta_io.close()
+# Make an HTTP GET request to the URL
+response = requests.get(url)
 
-q = Query(seq_str[0:54], query_type="sequence", return_type="polymer_entity")
-result = q.search()
-#print(result)
+# Check if the request was successful (status code 200)
+if response.status_code == 200:
+    # Get the response content
+    response_text = response.text
 
-if result is None or result is None:
-    pdbnewcode = uniprot_id
+    # Define the file name to save the result
+    file_name = f"{uniprot_id}_result.txt"
+
+    # Save the response content to a text file
+    with open(file_name, "w", encoding="utf-8") as file:
+        file.write(response_text)
+
+    print(f"Result saved to '{file_name}'")
+
+    # Function to extract PDB IDs
+    def extract_pdb_ids(text):
+        # Define a regular expression pattern to match "database":"PDB","id":"<>"
+        pattern = r'"database":"PDB","id":"([^"]+)"'
+
+        # Use regex to find all matches of the pattern
+        matches = re.findall(pattern, text)
+
+        return matches
+
+    # Extract PDB IDs from the file content
+    pdb_ids = extract_pdb_ids(response_text)
+
+    # Print the extracted PDB IDs
+    for pdb_id in pdb_ids:
+        print(f"PDB ID: {pdb_id}")
 else:
-    highest_score = -1.0
-    identifier = ""
-    for result in result['result_set']:
-        if result['score'] > highest_score:
-            highest_score = result['score']
-            identifier = result['identifier']
-    print("Identifier with the highest score:", identifier[0:4])
+    print(f"Error: Failed to retrieve data. Status code: {response.status_code}")
 
 
 # Function to download a PDB file from the Internet
@@ -229,11 +247,11 @@ def new_method_for_alphafold(pdbcode, datadir):
         return outfnm2
 
 
-# Download or use the new method to get the PDB file
-if result is None or result is None:
-    pdbpath = new_method_for_alphafold(uniprot_id, current_dir)  # relative path
-else:
-    pdbpath = download_pdb(identifier[0:4], current_dir)
+# # Download or use the new method to get the PDB file
+# if result is None or result is None:
+#     pdbpath = new_method_for_alphafold(uniprot_id, current_dir)  # relative path
+
+pdbpath = download_pdb(pdb_id, current_dir)
 
 
 # Get user input for residue two
