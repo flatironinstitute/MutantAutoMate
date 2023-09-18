@@ -467,14 +467,8 @@ if __name__ == "__main__":
     threshold = 100  # Define the threshold value for high Grantham score
 
 #Add to PDF
-    if score is not None:
-        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
-        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
 
-        if score > threshold:
-            print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
-            grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
-
+print(grantham_output)
 # Additional information about mutation impact
 additional_info_1 = """\n
 It is essential to emphasize that the specific impact of a point mutation on pathogenicity is a complex phenomenon influenced by various factors. These factors include:
@@ -498,22 +492,22 @@ def generate_pdf(image_path, screenshot_path):
     name = gene_name + "_" + residue_info + str(residue2)
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
 
-    grantham_output = ""
-    try:
-        with open(file_path, "r") as file:
-            grantham_output = file.read()
-    except FileNotFoundError:
-        grantham_output = "Grantham output file not found."
+    if score is not None:
+        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
+        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
 
-  
+        if score > threshold:
+            print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
+            grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
+
     # Define the print statements to be written to the PDF
     print_statements = [
         f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
         f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
-        "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        #f"{grantham_output}.",
+        f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
+        f"{grantham_output}.",
         f"{additional_info_1}",
         f"{additional_info_2}",
         f"{additional_info_3}",
@@ -565,7 +559,6 @@ def generate_pdf(image_path, screenshot_path):
     )
     flowables.append(bullet_list)
     #  Add the Grantham output content to the PDF
-    grantham_paragraph = Paragraph(grantham_output.strip(), styles["Normal"])
     flowables.append(grantham_paragraph)
 
     # Load and add the screenshot image to the flowables
