@@ -451,6 +451,7 @@ def calculate_grantham_score(grantham_dict, aa1, aa2):
         return None
 
 if __name__ == "__main__":
+    grantham_output = ""
     # Load the Grantham dictionary from the output file
     output_file = "grantham_output.txt"
     with open(output_file, "r") as f:
@@ -490,13 +491,21 @@ additional_info_4="""
 additional_info_5="""
 4. Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
 """
-
+file_path = "grantham_output.txt"
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue_info + str(residue2)
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
 
+    grantham_output = ""
+    try:
+        with open(file_path, "r") as file:
+            grantham_output = file.read()
+    except FileNotFoundError:
+        grantham_output = "Grantham output file not found."
+
+  
     # Define the print statements to be written to the PDF
     print_statements = [
         f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
@@ -538,7 +547,6 @@ def generate_pdf(image_path, screenshot_path):
     title = Paragraph(title_text, styles["Title"])
     flowables.append(title)
 
-  
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
         [
@@ -556,6 +564,9 @@ def generate_pdf(image_path, screenshot_path):
         spaceAfter=12
     )
     flowables.append(bullet_list)
+    #  Add the Grantham output content to the PDF
+    grantham_paragraph = Paragraph(grantham_output.strip(), styles["Normal"])
+    flowables.append(grantham_paragraph)
 
     # Load and add the screenshot image to the flowables
     screenshot = utils.ImageReader(screenshot_path)
