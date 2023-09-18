@@ -32,7 +32,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import utils
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem, Spacer, PageTemplate
 import subprocess
 import warnings
 
@@ -182,20 +182,12 @@ url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}"
 
 # Make an HTTP GET request to the URL
 response = requests.get(url)
+# Rest of the code...
 
 # Check if the request was successful (status code 200)
 if response.status_code == 200:
     # Get the response content
     response_text = response.text
-
-    # Define the file name to save the result
-    file_name = f"{uniprot_id}_result.txt"
-
-    # Save the response content to a text file
-    with open(file_name, "w", encoding="utf-8") as file:
-        file.write(response_text)
-
-    print(f"Result saved to '{file_name}'")
 
     # Function to extract PDB IDs
     def extract_pdb_ids(text):
@@ -207,15 +199,16 @@ if response.status_code == 200:
 
         return matches
 
-    # Extract PDB IDs from the file content
+    # Extract PDB IDs from the response text
     pdb_ids = extract_pdb_ids(response_text)
 
     # Print the extracted PDB IDs
-    # for pdb_id in pdb_ids:
     print(pdb_ids[0])
         #print(f"PDB ID: {pdb_id}")
 else:
     print(f"Error: Failed to retrieve data. Status code: {response.status_code}")
+
+# Rest of the code...
 
 
 # Function to download a PDB file from the Internet
@@ -482,25 +475,21 @@ if __name__ == "__main__":
             grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
 
 # Additional information about mutation impact
-additional_info = """\n
+additional_info_1 = """\n
 It is essential to emphasize that the specific impact of a point mutation on pathogenicity is a complex phenomenon influenced by various factors. These factors include:
-
-- Nature of Amino Acid Change: The chemical properties of the mutated amino acids play a crucial role in determining the functional consequences of the mutation.
-- Location within Alpha Helix: The precise position of the mutation within an alpha helix can affect the protein's structural stability and interactions.
-- Role in Protein Function: Mutations occurring at residues critical for protein function can have a more pronounced impact on pathogenicity.
-- Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
-
-It is important to note that a comprehensive assessment of the impact of a point mutation on pathogenicity typically requires detailed experimental or computational analyses. These analyses provide a deeper understanding of the mutation's consequences, helping to elucidate its potential role in disease pathology
 """
-
-# # Replace line breaks with bullet points
-# additional_info = additional_info.replace('\n- ', '\n• ')
-
-# # Add a bullet point at the beginning
-# additional_info = '• \n' + additional_info
-
-# # Add the formatted additional information to grantham_output
-# grantham_output += additional_info
+additional_info_2="""
+1. Nature of Amino Acid Change: The chemical properties of the mutated amino acids play a crucial role in determining the functional consequences of the mutation.
+"""
+additional_info_3= """
+2. Location within Alpha Helix: The precise position of the mutation within an alpha helix can affect the protein's structural stability and interactions.
+"""
+additional_info_4="""
+3.  Role in Protein Function: Mutations occurring at residues critical for protein function can have a more pronounced impact on pathogenicity.
+"""
+additional_info_5="""
+4. Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
+"""
 
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
@@ -515,8 +504,12 @@ def generate_pdf(image_path, screenshot_path):
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        f"{grantham_output}."
-        f"{additional_info}"
+        f"{grantham_output}.",
+        f"{additional_info_1}",
+        f"{additional_info_2}",
+        f"{additional_info_3}",
+        f"{additional_info_4}",
+        f"{additional_info_5}"
     ]
 
     # Modify the print_statements list to include the additional lines
@@ -545,6 +538,7 @@ def generate_pdf(image_path, screenshot_path):
     title = Paragraph(title_text, styles["Title"])
     flowables.append(title)
 
+  
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
         [
