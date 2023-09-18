@@ -513,7 +513,7 @@ def generate_pdf(image_path, screenshot_path):
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        f"{grantham_output}.",
+        #f"{grantham_output}.",
         f"{additional_info_1}",
         f"{additional_info_2}",
         f"{additional_info_3}",
