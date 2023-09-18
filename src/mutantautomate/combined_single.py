@@ -322,7 +322,7 @@ def charge_statement(residue1, residue2):
     )
     return score
 
-
+print(residue2)
 # Get the charge change score
 score = charge_statement(residue, residue2)
 
@@ -450,19 +450,24 @@ def calculate_grantham_score(grantham_dict, aa1, aa2):
         print(f"Grantham score not available for ({aa1}, {aa2})")
         return None
 
+output_file = "grantham_output.txt"
+with open(output_file, "r") as f:
+    grantham_dict = ast.literal_eval(f.read())
+
+amino_acid1 = residue_info[0]#input("Enter the first amino acid: ").upper()
+amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
+
 if __name__ == "__main__":
     grantham_output = ""
     # Load the Grantham dictionary from the output file
     output_file = "grantham_output.txt"
     with open(output_file, "r") as f:
         grantham_dict = ast.literal_eval(f.read())
-
+    print(grantham_dict)
     # Take user input for amino acids
-    amino_acid1 = residue_info[0]#input("Enter the first amino acid: ").upper()
-    amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
-    print(amino_acid1, amino_acid2)
+   
 
-    score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
+    grantham_score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
 
     threshold = 100  # Define the threshold value for high Grantham score
 
@@ -484,17 +489,21 @@ additional_info_5="""
 4. Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
 """
 file_path = "grantham_output.txt"
+
+threshold =100
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue_info + str(residue2)
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
 
-    if score is not None:
-        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
-        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
+    grantham_score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
 
-        if score > threshold:
+    if grantham_score is not None:
+        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {grantham_score}")
+        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {grantham_score}"
+        print(grantham_score)
+        if grantham_score > threshold:
             print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
             grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
 
