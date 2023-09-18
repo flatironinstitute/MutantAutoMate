@@ -211,8 +211,9 @@ if response.status_code == 200:
     pdb_ids = extract_pdb_ids(response_text)
 
     # Print the extracted PDB IDs
-    for pdb_id in pdb_ids:
-        print(f"PDB ID: {pdb_id}")
+    # for pdb_id in pdb_ids:
+    print(pdb_ids[0])
+        #print(f"PDB ID: {pdb_id}")
 else:
     print(f"Error: Failed to retrieve data. Status code: {response.status_code}")
 
@@ -251,8 +252,7 @@ def new_method_for_alphafold(pdbcode, datadir):
 # if result is None or result is None:
 #     pdbpath = new_method_for_alphafold(uniprot_id, current_dir)  # relative path
 
-pdbpath = download_pdb(pdb_id, current_dir)
-
+pdbpath = download_pdb(pdb_ids[0], current_dir)
 
 # Get user input for residue two
 residue2 = input("Enter residue two:")
@@ -466,6 +466,7 @@ if __name__ == "__main__":
     # Take user input for amino acids
     amino_acid1 = residue_info[0]#input("Enter the first amino acid: ").upper()
     amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
+    print(amino_acid1, amino_acid2)
 
     score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
 
@@ -473,13 +474,33 @@ if __name__ == "__main__":
 
 #Add to PDF
     if score is not None:
-        print(f"The Grantham score between {amino_acid1} and {amino_acid2} is {score}.")
-        grantham_output = "The Grantham score between {amino_acid1} and {amino_acid2} is {score}."
+        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
+        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
 
         if score > threshold:
             print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
-            grantham_output = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
+            grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
 
+# Additional information about mutation impact
+additional_info = """\n
+It is essential to emphasize that the specific impact of a point mutation on pathogenicity is a complex phenomenon influenced by various factors. These factors include:
+
+- Nature of Amino Acid Change: The chemical properties of the mutated amino acids play a crucial role in determining the functional consequences of the mutation.
+- Location within Alpha Helix: The precise position of the mutation within an alpha helix can affect the protein's structural stability and interactions.
+- Role in Protein Function: Mutations occurring at residues critical for protein function can have a more pronounced impact on pathogenicity.
+- Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
+
+It is important to note that a comprehensive assessment of the impact of a point mutation on pathogenicity typically requires detailed experimental or computational analyses. These analyses provide a deeper understanding of the mutation's consequences, helping to elucidate its potential role in disease pathology
+"""
+
+# # Replace line breaks with bullet points
+# additional_info = additional_info.replace('\n- ', '\n• ')
+
+# # Add a bullet point at the beginning
+# additional_info = '• \n' + additional_info
+
+# # Add the formatted additional information to grantham_output
+# grantham_output += additional_info
 
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
@@ -490,11 +511,12 @@ def generate_pdf(image_path, screenshot_path):
     # Define the print statements to be written to the PDF
     print_statements = [
         f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
-        f"For the gene {gene_name}, the residue {residue_info[0]} at position {position} goes from {residue_info[0]} to {amino_acids.get(residue2)}.",
+        f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
         f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
         f"Matching UniProt IDs were: {matching_isoforms}",
         "Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
         f"{grantham_output}."
+        f"{additional_info}"
     ]
 
     # Modify the print_statements list to include the additional lines
