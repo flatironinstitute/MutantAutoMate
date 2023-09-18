@@ -466,9 +466,7 @@ if __name__ == "__main__":
 
     threshold = 100  # Define the threshold value for high Grantham score
 
-#Add to PDF
 
-print(grantham_output)
 # Additional information about mutation impact
 additional_info_1 = """\n
 It is essential to emphasize that the specific impact of a point mutation on pathogenicity is a complex phenomenon influenced by various factors. These factors include:
