@@ -558,8 +558,6 @@ def generate_pdf(image_path, screenshot_path):
         spaceAfter=12
     )
     flowables.append(bullet_list)
-    #  Add the Grantham output content to the PDF
-    flowables.append(grantham_paragraph)
 
     # Load and add the screenshot image to the flowables
     screenshot = utils.ImageReader(screenshot_path)
