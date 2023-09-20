@@ -36,7 +36,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable
 import subprocess
 import warnings
 
-from Bio.Align import PairwiseAligner
+# from Bio.Align import PairwiseAligner
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -138,33 +138,33 @@ else:
 # Rest of the code...
 
 # Function to calculate similarity between two sequences using PairwiseAligner
-def calculate_similarity(sequence1, sequence2):
-    aligner = PairwiseAligner()
-    aligner.mode = 'global'
-    aligner.match_score = 1
-    aligner.mismatch_score = -1
-    alignments = aligner.align(sequence1, sequence2)
-    best_alignment = alignments[0]
-    alignment_score = best_alignment.score
-    alignment_length = len(best_alignment)
-    similarity = alignment_score / alignment_length * 100
-    return similarity
+# def calculate_similarity(sequence1, sequence2):
+#     aligner = PairwiseAligner()
+#     aligner.mode = 'global'
+#     aligner.match_score = 1
+#     aligner.mismatch_score = -1
+#     alignments = aligner.align(sequence1, sequence2)
+#     best_alignment = alignments[0]
+#     alignment_score = best_alignment.score
+#     alignment_length = len(best_alignment)
+#     similarity = alignment_score / alignment_length * 100
+#     return similarity
 
 
-# Function to score isoforms based on similarity to the gene sequence
-def score_isoforms_by_similarity(gene_name, isoforms):
-    scored_isoforms = []
-    for isoform in isoforms:
-        u = UniProt()
-        entry = u.retrieve(isoform, "fasta")
-        sequence = ''.join(entry.strip().split('\n')[1:])
-        similarity = calculate_similarity(gene_name, sequence)
-        scored_isoforms.append((isoform, similarity))
-    scored_isoforms.sort(key=lambda x: x[1], reverse=True)
-    return scored_isoforms[:3]  # Return the top 3 scored isoforms
+# # Function to score isoforms based on similarity to the gene sequence
+# def score_isoforms_by_similarity(gene_name, isoforms):
+#     scored_isoforms = []
+#     for isoform in isoforms:
+#         u = UniProt()
+#         entry = u.retrieve(isoform, "fasta")
+#         sequence = ''.join(entry.strip().split('\n')[1:])
+#         similarity = calculate_similarity(gene_name, sequence)
+#         scored_isoforms.append((isoform, similarity))
+#     scored_isoforms.sort(key=lambda x: x[1], reverse=True)
+#     return scored_isoforms[:3]  # Return the top 3 scored isoforms
 
-# Retrieve the sequence for the selected isoforms and return the top 3 isoforms
-top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
+# # Retrieve the sequence for the selected isoforms and return the top 3 isoforms
+# top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
 # Create UniProt object
 u = UniProt()
 
@@ -463,7 +463,7 @@ if __name__ == "__main__":
     output_file = "grantham_output.txt"
     with open(output_file, "r") as f:
         grantham_dict = ast.literal_eval(f.read())
-    print(grantham_dict)
+    # print(grantham_dict)
     # Take user input for amino acids
    
 
