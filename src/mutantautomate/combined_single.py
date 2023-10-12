@@ -1,6 +1,12 @@
 # Import required libraries
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Spacer
+from reportlab.lib import colors
+from reportlab.platypus.flowables import HRFlowable
+#remove redundant ones from above^^^ clean code
 import requests
-#import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 import json
@@ -10,6 +16,7 @@ import ast
 from io import StringIO
 from Bio import SeqIO
 from pypdb import *
+from reportlab.platypus import HRFlowable
 from bioservices import *
 import numpy as np
 import os
@@ -36,7 +43,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable
 import subprocess
 import warnings
 
-# from Bio.Align import PairwiseAligner
+from Bio.Align import PairwiseAligner
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -138,33 +145,33 @@ else:
 # Rest of the code...
 
 # Function to calculate similarity between two sequences using PairwiseAligner
-# def calculate_similarity(sequence1, sequence2):
-#     aligner = PairwiseAligner()
-#     aligner.mode = 'global'
-#     aligner.match_score = 1
-#     aligner.mismatch_score = -1
-#     alignments = aligner.align(sequence1, sequence2)
-#     best_alignment = alignments[0]
-#     alignment_score = best_alignment.score
-#     alignment_length = len(best_alignment)
-#     similarity = alignment_score / alignment_length * 100
-#     return similarity
+def calculate_similarity(sequence1, sequence2):
+    aligner = PairwiseAligner()
+    aligner.mode = 'global'
+    aligner.match_score = 1
+    aligner.mismatch_score = -1
+    alignments = aligner.align(sequence1, sequence2)
+    best_alignment = alignments[0]
+    alignment_score = best_alignment.score
+    alignment_length = len(best_alignment)
+    similarity = alignment_score / alignment_length * 100
+    return similarity
 
 
-# # Function to score isoforms based on similarity to the gene sequence
-# def score_isoforms_by_similarity(gene_name, isoforms):
-#     scored_isoforms = []
-#     for isoform in isoforms:
-#         u = UniProt()
-#         entry = u.retrieve(isoform, "fasta")
-#         sequence = ''.join(entry.strip().split('\n')[1:])
-#         similarity = calculate_similarity(gene_name, sequence)
-#         scored_isoforms.append((isoform, similarity))
-#     scored_isoforms.sort(key=lambda x: x[1], reverse=True)
-#     return scored_isoforms[:3]  # Return the top 3 scored isoforms
+# Function to score isoforms based on similarity to the gene sequence
+def score_isoforms_by_similarity(gene_name, isoforms):
+    scored_isoforms = []
+    for isoform in isoforms:
+        u = UniProt()
+        entry = u.retrieve(isoform, "fasta")
+        sequence = ''.join(entry.strip().split('\n')[1:])
+        similarity = calculate_similarity(gene_name, sequence)
+        scored_isoforms.append((isoform, similarity))
+    scored_isoforms.sort(key=lambda x: x[1], reverse=True)
+    return scored_isoforms[:3]  # Return the top 3 scored isoforms
 
-# # Retrieve the sequence for the selected isoforms and return the top 3 isoforms
-# top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
+# Retrieve the sequence for the selected isoforms and return the top 3 isoforms
+top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
 # Create UniProt object
 u = UniProt()
 
@@ -322,7 +329,7 @@ def charge_statement(residue1, residue2):
     )
     return score
 
-print(residue2)
+
 # Get the charge change score
 score = charge_statement(residue, residue2)
 
@@ -405,14 +412,14 @@ else:
     target_residue_index = topology.residue(target_position).index
     residue_frames = structured_frames[:, target_residue_index]
     if residue_frames.any():
-        structured_or_not = f"Residue {residue_info} is in a structured part of the protein."
+        structured_or_not = f"Residue {residue_info} is in a structured part of the protein"
     else:
-        structured_or_not = f"Residue {residue_info} is not in a structured part of the protein."
+        structured_or_not = f"Residue {residue_info} is not in a structured part of the protein"
 
 
 # Generate the final output message
 output_message = (
-    "For gene " + gene_name + ", " + str(residue_info) + str(residue2) + " is a mutation from " + str(score) + ".\n" +
+    "This is a mutation from " + str(score) + ".\n" +
     structured_or_not
 )
 print(output_message)
@@ -450,84 +457,96 @@ def calculate_grantham_score(grantham_dict, aa1, aa2):
         print(f"Grantham score not available for ({aa1}, {aa2})")
         return None
 
-output_file = "grantham_output.txt"
-with open(output_file, "r") as f:
-    grantham_dict = ast.literal_eval(f.read())
-
-amino_acid1 = residue_info[0]#input("Enter the first amino acid: ").upper()
-amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
-
 if __name__ == "__main__":
-    grantham_output = ""
     # Load the Grantham dictionary from the output file
     output_file = "grantham_output.txt"
     with open(output_file, "r") as f:
         grantham_dict = ast.literal_eval(f.read())
-    # print(grantham_dict)
-    # Take user input for amino acids
-   
 
-    grantham_score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
+    # Take user input for amino acids
+    amino_acid1 = residue_info[0] #input("Enter the first amino acid: ").upper()
+    amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
+    print(amino_acid1, amino_acid2)
+
+    score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
 
     threshold = 100  # Define the threshold value for high Grantham score
 
+#Add to PDF
+    if score is not None:
+        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
+        grantham_score= score
+        grantham_output = f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
 
-# Additional information about mutation impact
-additional_info_1 = """\n
-It is essential to emphasize that the specific impact of a point mutation on pathogenicity is a complex phenomenon influenced by various factors. These factors include:
-"""
-additional_info_2="""
-1. Nature of Amino Acid Change: The chemical properties of the mutated amino acids play a crucial role in determining the functional consequences of the mutation.
-"""
-additional_info_3= """
-2. Location within Alpha Helix: The precise position of the mutation within an alpha helix can affect the protein's structural stability and interactions.
-"""
-additional_info_4="""
-3.  Role in Protein Function: Mutations occurring at residues critical for protein function can have a more pronounced impact on pathogenicity.
-"""
-additional_info_5="""
-4. Overall Protein Context: The mutation's influence may vary depending on the protein's overall structure and function within the cellular context.
-"""
-file_path = "grantham_output.txt"
+        if score > threshold:
+            print("This is a high Grantham score, indicating a potentially significant evolutionary distance.")
+            grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
 
-threshold =100
+
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue_info + str(residue2)
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
-
-    grantham_score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
-
-    if grantham_score is not None:
-        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {grantham_score}")
-        grantham_output = f"\nThe Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {grantham_score}"
-        print(grantham_score)
-        if grantham_score > threshold:
-            print("This is a high Grantham score, indicating a potentially significant evolutionary distance")
-            grantham_output = "\nThis is a high Grantham score, indicating a potentially significant evolutionary distance"
-
+    styles = getSampleStyleSheet()
+    first_line= f"These are the MutantAutoMate results for the {gene_name} {amino_acids.get(residue_info[0])} at position {position} -> {amino_acids.get(residue2)} mutant:"
     # Define the print statements to be written to the PDF
     print_statements = [
-        f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
-        f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
-        f"The UniProt ID for the matched isoform is {matching_isoforms[0]}",
-        f"Matching UniProt IDs were: {matching_isoforms}",
-        f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        f"{grantham_output}.",
-        f"{additional_info_1}",
-        f"{additional_info_2}",
-        f"{additional_info_3}",
-        f"{additional_info_4}",
-        f"{additional_info_5}"
+        #f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
+        # f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
+        #f"The UniProt ID for the matched isoform is {matching_isoforms[0]} and downloaded PDB is {pdb_ids[0]}",
+        f"{output_message}. "
+        # f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
+        f"{grantham_output}",
+        # f"{grantham_output_extra}",
+    ]
+    
+    description = f"This is the PDB ID and the UniProt ID for the isoform is {matching_isoforms[0]} "
+    # # Create a table to hold the elements side by side
+    data = [
+        f'<font color="white" bgcolor="green"><b>{pdb_ids[0]}</b></font>', description
     ]
 
-    # Modify the print_statements list to include the additional lines
-    print_statements.extend([
-        "It's important to note that the specific effect of a point mutation on the pathogenicity of a mutation will depend on many factors, including the nature of the amino acid change, the location of the mutation within the alpha helix, the role of the affected residue in protein function, and the overall protein context.",
-        "Detailed experimental or computational analysis is typically required to accurately assess the impact of a point mutation on pathogenicity in a specific protein."
-    ])
+    # Adjust the width of the box (colWidths) to make it smaller
+    table = Table(data, colWidths=[50, 420])
 
+    # Apply styling to the table
+    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.green),
+                               ('TEXTCOLOR', (0, 0), (0, 0), colors.white),
+                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                               ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                               ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                               ]))
+    
+    
+    description_2 = f"{grantham_output_extra}"
+    # Create a table to hold the elements side by side
+    # Set the threshold value
+    threshold = 100
+
+    # Determine the background color based on the score
+    if grantham_score > threshold:
+        bgcolor = "red"
+    else:
+        bgcolor = "green"
+
+    # Create a table to hold the elements side by side with the determined background color
+    data_2 = [
+        f'<font color="white" bgcolor="{bgcolor}"><b>{grantham_score}</b></font>', description_2
+    ]
+
+    # Adjust the width of the box (colWidths) to make it smaller
+    table_2 = Table(data_2, colWidths=[50, 420])
+
+    # Apply styling to the table
+    table_2.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.green),
+                               ('TEXTCOLOR', (0, 0), (0, 0), colors.white),
+                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                               ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                               ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                               ]))
+    
+    
     # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
     flowables = []
 
@@ -548,11 +567,36 @@ def generate_pdf(image_path, screenshot_path):
     title = Paragraph(title_text, styles["Title"])
     flowables.append(title)
 
+    styles = getSampleStyleSheet()
+    paragraph_style = styles["Normal"]
+    paragraph1 = Paragraph(first_line, paragraph_style)
+    flowables.append(paragraph1)
+
+    # Add a horizontal line to separate content
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
+    # Flatten the data list and join as a string with line breaks
+    flattened_data = [str(item) for item in data]
+    formatted_data = "\n".join(flattened_data)
+
+    # Now, you can create a Paragraph object using 'formatted_data'
+    paragraph = Paragraph(formatted_data)
+    flowables.append(paragraph)
+
+     # Add a horizontal line to separate content
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
+    # Flatten the data list and join as a string with line breaks
+    flattened_data_2 = [str(item) for item in data_2]
+    formatted_data_2 = "\n".join(flattened_data_2)
+
+    # Now, you can create a Paragraph object using 'formatted_data'
+    paragraph_2 = Paragraph(formatted_data_2)
+    flowables.append(paragraph_2)
+
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
-        [
-            ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements
-        ],
+        [ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements],
         bulletType="bullet",
         leftIndent=40,
         rightIndent=10,
@@ -565,6 +609,10 @@ def generate_pdf(image_path, screenshot_path):
         spaceAfter=12
     )
     flowables.append(bullet_list)
+
+    # Add a horizontal line to separate content
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
 
     # Load and add the screenshot image to the flowables
     screenshot = utils.ImageReader(screenshot_path)
@@ -580,18 +628,14 @@ def generate_pdf(image_path, screenshot_path):
     doc.build(flowables)
     print("Your PDF summary for this mutant has been created!")
 
-
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
 
 # Set the image filename
 image_filename = "logo.png"
 
-
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
-
 
 # Call the function to generate the PDF
 generate_pdf(image_path, screenshot)
