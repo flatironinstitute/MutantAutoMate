@@ -325,7 +325,7 @@ def charge_statement(residue1, residue2):
 
     score = (
         f"{amino_acids.get(residue1)} at position {position} to {amino_acids.get(residue2)}"
-        + " is a mutation from a " + f"{residue1_charge}" + " charged amino acid to a " + f"{residue2_charge}" + " amino acid"
+        + "from a " + f"{residue1_charge}" + " charged amino acid to a " + f"{residue2_charge}" + " amino acid"
     )
     return score
 
@@ -419,8 +419,8 @@ else:
 
 # Generate the final output message
 output_message = (
-    "This is a mutation from " + str(score) + ".\n" +
-    structured_or_not
+    "This is a mutation from " + str(score) + ".\n" 
+    
 )
 print(output_message)
 
@@ -495,9 +495,10 @@ def generate_pdf(image_path, screenshot_path):
         #f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
         # f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
         #f"The UniProt ID for the matched isoform is {matching_isoforms[0]} and downloaded PDB is {pdb_ids[0]}",
-        f"{output_message}. "
-        # f"Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        f"{grantham_output}",
+        f"{output_message}",
+        f"{structured_or_not}. "
+        f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
+        # f"{grantham_output}",
         # f"{grantham_output_extra}",
     ]
     
@@ -593,7 +594,10 @@ def generate_pdf(image_path, screenshot_path):
     # Now, you can create a Paragraph object using 'formatted_data'
     paragraph_2 = Paragraph(formatted_data_2)
     flowables.append(paragraph_2)
-
+    # Add a horizontal line to separate content
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
+    
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
         [ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements],
