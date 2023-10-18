@@ -499,7 +499,6 @@ def generate_pdf(image_path, screenshot_path):
         f"{structured_or_not}. "
         f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
         # f"{grantham_output}",
-        # f"{grantham_output_extra}",
     ]
     
     description = f"This is the PDB ID and the UniProt ID for the isoform is {matching_isoforms[0]} "
