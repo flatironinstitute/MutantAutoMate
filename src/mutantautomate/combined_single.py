@@ -498,7 +498,6 @@ def generate_pdf(image_path, screenshot_path):
         f"{output_message}",
         f"{structured_or_not}. "
         f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-        # f"{grantham_output}",
     ]
     
     description = f"This is the PDB ID and the UniProt ID for the isoform is {matching_isoforms[0]} "
@@ -519,7 +518,9 @@ def generate_pdf(image_path, screenshot_path):
                                ]))
     
     
+    print(grantham_output_extra)
     description_2 = f"{grantham_output_extra}"
+    print(grantham_output_extra)
     # Create a table to hold the elements side by side
     # Set the threshold value
     threshold = 100
