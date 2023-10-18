@@ -481,6 +481,8 @@ if __name__ == "__main__":
         if score > threshold:
             print("This is a high Grantham score, indicating a potentially significant evolutionary distance.")
             grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
+        else:
+            grantham_output_extra = "Not a potentially high score."
 
 
 # Generate a PDF summary for the mutant
