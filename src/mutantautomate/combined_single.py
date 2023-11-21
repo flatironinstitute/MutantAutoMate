@@ -1,10 +1,11 @@
 # Import required libraries
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Frame
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Spacer
 from reportlab.lib import colors
 from reportlab.platypus.flowables import HRFlowable
+from reportlab.lib.units import inch
 #remove redundant ones from above^^^ clean code
 import requests
 from bs4 import BeautifulSoup
@@ -501,7 +502,7 @@ def generate_pdf(image_path, screenshot_path):
         f"{structured_or_not}. "
         f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
     ]
-    
+    what_is_mutantA = "MutantAutoMate automates the retrieval of relevant PDB structures for a specified gene isoform and mutant, generates descriptive PDFs, and produces structural snapshots. It facilitates the analysis of mutations, exemplified by providing a list of matching isoforms for a specific residue."
     description = f"This is the PDB ID and the UniProt ID for the isoform is {matching_isoforms[0]} "
     # # Create a table to hold the elements side by side
     data = [
@@ -570,6 +571,16 @@ def generate_pdf(image_path, screenshot_path):
     title = Paragraph(title_text, styles["Title"])
     flowables.append(title)
 
+    # Create a new style with italic font and smaller size
+    italic_small_style = styles["Normal"].clone("ItalicSmall")
+    italic_small_style.fontName = "Helvetica-Oblique"  # Change to your preferred italic font
+    italic_small_style.fontSize = 8 
+
+    what = Paragraph(what_is_mutantA, italic_small_style)
+
+    flowables.append(what)
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
     styles = getSampleStyleSheet()
     paragraph_style = styles["Normal"]
     paragraph1 = Paragraph(first_line, paragraph_style)
@@ -577,7 +588,7 @@ def generate_pdf(image_path, screenshot_path):
 
     # Add a horizontal line to separate content
     line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    flowables.append(line)
+    #flowables.append(line)
     # Flatten the data list and join as a string with line breaks
     flattened_data = [str(item) for item in data]
     formatted_data = "\n".join(flattened_data)
@@ -587,8 +598,8 @@ def generate_pdf(image_path, screenshot_path):
     flowables.append(paragraph)
 
      # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    flowables.append(line)
+    # line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    # flowables.append(line)
     # Flatten the data list and join as a string with line breaks
     flattened_data_2 = [str(item) for item in data_2]
     formatted_data_2 = "\n".join(flattened_data_2)
@@ -597,8 +608,8 @@ def generate_pdf(image_path, screenshot_path):
     paragraph_2 = Paragraph(formatted_data_2)
     flowables.append(paragraph_2)
     # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    flowables.append(line)
+    # line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    # flowables.append(line)
     
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
@@ -614,6 +625,19 @@ def generate_pdf(image_path, screenshot_path):
         bulletDedent='auto',
         spaceAfter=12
     )
+    # Create a frame to surround the text
+    frame = Frame(
+        x1=inch,  # Adjust the left margin
+        y1=inch,  # Adjust the bottom margin
+        width=letter[0] - 2 * inch,  # Adjust the width
+        height=letter[1] - 2 * inch,  # Adjust the height
+        showBoundary=1,  # Show the boundary of the frame
+        leftPadding=12,  # Adjust the left padding inside the frame
+        rightPadding=12,  # Adjust the right padding inside the frame
+        topPadding=12,  # Adjust the top padding inside the frame
+        bottomPadding=12  # Adjust the bottom padding inside the frame
+    )
+
     flowables.append(bullet_list)
 
     # Add a horizontal line to separate content
@@ -631,6 +655,8 @@ def generate_pdf(image_path, screenshot_path):
     flowables.append(screenshot_img)
 
     # Build the PDF document with the flowables
+    doc.addPageTemplates([PageTemplate(id='frame', frames=[frame])])
+
     doc.build(flowables)
     print("Your PDF summary for this mutant has been created!")
 
