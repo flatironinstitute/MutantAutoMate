@@ -326,7 +326,7 @@ def charge_statement(residue1, residue2):
 
     score = (
         f"{amino_acids.get(residue1)} at position {position} to {amino_acids.get(residue2)}"
-        + "from a " + f"{residue1_charge}" + " charged amino acid to a " + f"{residue2_charge}" + " amino acid"
+        + " from a " + f"{residue1_charge}" + " charged amino acid to a " + f"{residue2_charge}" + " amino acid"
     )
     return score
 
@@ -557,7 +557,7 @@ def generate_pdf(image_path, screenshot_path):
     # Load and add the logo image to the flowables
     logo = utils.ImageReader(image_path)
     logo_width, logo_height = logo.getSize()
-    logo_scale = 0.1  # Adjust the scale as needed
+    logo_scale = 0.05  # Adjust the scale as needed
     logo_width *= logo_scale
     logo_height *= logo_scale
     img = Image(image_path, width=logo_width, height=logo_height)
@@ -569,6 +569,8 @@ def generate_pdf(image_path, screenshot_path):
     styles = getSampleStyleSheet()
     title_text = "MutantAutoMate"
     title = Paragraph(title_text, styles["Title"])
+    # Adjust the top position to move the title upwards
+    title.top = doc.pagesize[1] - logo_height  # Align with the top of the logo
     flowables.append(title)
 
     # Create a new style with italic font and smaller size
@@ -577,6 +579,8 @@ def generate_pdf(image_path, screenshot_path):
     italic_small_style.fontSize = 8 
 
     what = Paragraph(what_is_mutantA, italic_small_style)
+
+    what.top = doc.pagesize[1] - logo_height - 40  # You can adjust the value as needed
 
     flowables.append(what)
     line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
