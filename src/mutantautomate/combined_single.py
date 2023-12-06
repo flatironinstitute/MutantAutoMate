@@ -98,15 +98,25 @@ def search_residue(residue, position, gene_name):
             matching_isoforms.append(isoform)
     return matching_isoforms
 
+# Check if the correct number of command-line arguments are provided
+if len(sys.argv) != 5:
+    print("Usage: python file-name.py gene-name residue1 position residue2")
+    sys.exit(1)
 
-# User input for gene name and residue information
-input_string = input("Enter the gene name and residue information (e.g., SHANK3 D26): ")
-gene_name, residue_info = input_string.split()
-residue = residue_info[0]
-position = int(residue_info[1:])
+# Retrieve command-line arguments
+gene_name = sys.argv[1]
+residue1 = sys.argv[2]
+position = int(sys.argv[3])
+residue2 = sys.argv[4]
+
+# Display user inputs
+print("Gene Name:", gene_name)
+print("Residue 1:", residue1)
+print("Position:", position)
+print("Residue 2:", residue2)
 
 # Search for matching isoforms
-matching_isoforms = search_residue(residue, position, gene_name)
+matching_isoforms = search_residue(residue1, position, gene_name)
 #print(matching_isoforms)
 
 def get_gene_name(uniprot_id):
@@ -256,7 +266,7 @@ def new_method_for_alphafold(pdbcode, datadir):
 pdbpath = download_pdb(pdb_ids[0], current_dir)
 
 # Get user input for residue two
-residue2 = input("Enter residue two:")
+# residue2 = input("Enter residue two:")
 
 # Define the dictionary of amino acid names
 amino_acids = {
@@ -332,7 +342,7 @@ def charge_statement(residue1, residue2):
 
 
 # Get the charge change score
-score = charge_statement(residue, residue2)
+score = charge_statement(residue1, residue2)
 
 
 # Define the path for the snapshot script
@@ -356,7 +366,7 @@ converted_position = str(position)
 
 
 # Run the bash script using subprocess with arguments
-output = subprocess.run(["bash", bash_script, file1, converted_position], capture_output=True, text=True)
+output = subprocess.run(["bash", bash_script, file1, residue2], capture_output=True, text=True)
 
 
 # Extract the output path from the command's standard output
@@ -399,33 +409,6 @@ for residue in topology.residues:
     if residue_frames.any():
         structured_residues.append(residue)
 
-
-target_residue_code = 'L'  # Modify this to the desired amino acid code
-target_position = 27  # Modify this to the desired residue position
-
-
-target_residue_name = topology.residue(target_position).name
-
-if target_residue_name is None:
-    print(f'Invalid amino acid code: {target_residue_code}')
-else:
-    # Check if the target residue is present in the structured frames
-    target_residue_index = topology.residue(target_position).index
-    residue_frames = structured_frames[:, target_residue_index]
-    if residue_frames.any():
-        structured_or_not = f"Residue {residue_info} is in a structured part of the protein"
-    else:
-        structured_or_not = f"Residue {residue_info} is not in a structured part of the protein"
-
-
-# Generate the final output message
-output_message = (
-    "This is a mutation from " + str(score) + ".\n" 
-    
-)
-print(output_message)
-
-
 # Define the dictionary of amino acid names
 amino_acids = {
     'A': 'Alanine',
@@ -450,6 +433,29 @@ amino_acids = {
     'Y': 'Tyrosine'
 }
 
+
+target_residue_name = topology.residue(position).name
+
+if target_residue_name is None:
+    print(f'Invalid amino acid code: {residue1}')
+else:
+    # Check if the target residue is present in the structured frames
+    target_residue_index = topology.residue(position).index
+    residue_frames = structured_frames[:, target_residue_index]
+    if residue_frames.any():
+        structured_or_not = f"Residue {amino_acids.get(residue1)} is in a structured part of the protein"
+    else:
+        structured_or_not = f"Residue {amino_acids.get(residue2)} is not in a structured part of the protein"
+
+
+# Generate the final output message
+output_message = (
+    "This is a mutation from " + str(score) + ".\n" 
+    
+)
+print(output_message)
+
+
 def calculate_grantham_score(grantham_dict, aa1, aa2):
     key = (aa1, aa2)
     if key in grantham_dict:
@@ -465,7 +471,7 @@ if __name__ == "__main__":
         grantham_dict = ast.literal_eval(f.read())
 
     # Take user input for amino acids
-    amino_acid1 = residue_info[0] #input("Enter the first amino acid: ").upper()
+    amino_acid1 = residue1 #input("Enter the first amino acid: ").upper()
     amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
     print(amino_acid1, amino_acid2)
 
@@ -475,9 +481,9 @@ if __name__ == "__main__":
 
 #Add to PDF
     if score is not None:
-        print(f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}")
+        print(f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}")
         grantham_score= score
-        grantham_output = f"The Grantham score between {amino_acids.get(residue_info[0])} and {amino_acids.get(residue2)} is {score}"
+        grantham_output = f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}"
 
         if score > threshold:
             print("This is a high Grantham score, indicating a potentially significant evolutionary distance.")
@@ -489,75 +495,37 @@ if __name__ == "__main__":
 # Generate a PDF summary for the mutant
 def generate_pdf(image_path, screenshot_path):
     # Create a new PDF document with letter size
-    name = gene_name + "_" + residue_info + str(residue2)
+    name = gene_name + "_" + residue1 + str(residue2)
     doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
     styles = getSampleStyleSheet()
-    first_line= f"These are the MutantAutoMate results for the {gene_name} {amino_acids.get(residue_info[0])} at position {position} -> {amino_acids.get(residue2)} mutant:"
+    first_line= f"These are the MutantAutoMate results for the gene <i>{gene_name}</i> which goes from <i>{amino_acids.get(residue1)}</i> at position {position} to <i>{amino_acids.get(residue2)}</i> mutation:"
     # Define the print statements to be written to the PDF
     print_statements = [
-        #f"These are the MutantAutoMate results for the {gene_name} {residue_info} mutant.",
-        # f"For the gene {gene_name}, the residue {amino_acids.get(residue_info[0])} at position {position} goes from {amino_acids.get(residue_info[0])} to {amino_acids.get(residue2)}.",
-        #f"The UniProt ID for the matched isoform is {matching_isoforms[0]} and downloaded PDB is {pdb_ids[0]}",
+        f"The PDB ID and the UniProt ID for the isoform are <b>{pdb_ids[0]}</b> and <b>{matching_isoforms[0]}</b>.",
+        f"{grantham_output_extra}",
         f"{output_message}",
         f"{structured_or_not}. "
         f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
     ]
     what_is_mutantA = "MutantAutoMate automates the retrieval of relevant PDB structures for a specified gene isoform and mutant, generates descriptive PDFs, and produces structural snapshots. It facilitates the analysis of mutations, exemplified by providing a list of matching isoforms for a specific residue."
-    description = f"This is the PDB ID and the UniProt ID for the isoform is {matching_isoforms[0]} "
-    # # Create a table to hold the elements side by side
-    data = [
-        f'<font color="white" bgcolor="green"><b>{pdb_ids[0]}</b></font>', description
-    ]
-
-    # Adjust the width of the box (colWidths) to make it smaller
-    table = Table(data, colWidths=[50, 420])
-
-    # Apply styling to the table
-    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.green),
-                               ('TEXTCOLOR', (0, 0), (0, 0), colors.white),
-                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                               ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                               ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                               ]))
     
     
     print(grantham_output_extra)
     description_2 = f"{grantham_output_extra}"
     print(grantham_output_extra)
-    # Create a table to hold the elements side by side
-    # Set the threshold value
-    threshold = 100
-
-    # Determine the background color based on the score
-    if grantham_score > threshold:
-        bgcolor = "red"
-    else:
-        bgcolor = "green"
-
+   
     # Create a table to hold the elements side by side with the determined background color
     data_2 = [
-        f'<font color="white" bgcolor="{bgcolor}"><b>{grantham_score}</b></font>', description_2
+         description_2
     ]
 
-    # Adjust the width of the box (colWidths) to make it smaller
-    table_2 = Table(data_2, colWidths=[50, 420])
-
-    # Apply styling to the table
-    table_2.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.green),
-                               ('TEXTCOLOR', (0, 0), (0, 0), colors.white),
-                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                               ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                               ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                               ]))
-    
-    
     # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
     flowables = []
 
     # Load and add the logo image to the flowables
     logo = utils.ImageReader(image_path)
     logo_width, logo_height = logo.getSize()
-    logo_scale = 0.05  # Adjust the scale as needed
+    logo_scale = 0.1  # Adjust the scale as needed
     logo_width *= logo_scale
     logo_height *= logo_scale
     img = Image(image_path, width=logo_width, height=logo_height)
@@ -592,29 +560,8 @@ def generate_pdf(image_path, screenshot_path):
 
     # Add a horizontal line to separate content
     line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    #flowables.append(line)
-    # Flatten the data list and join as a string with line breaks
-    flattened_data = [str(item) for item in data]
-    formatted_data = "\n".join(flattened_data)
 
-    # Now, you can create a Paragraph object using 'formatted_data'
-    paragraph = Paragraph(formatted_data)
-    flowables.append(paragraph)
-
-     # Add a horizontal line to separate content
-    # line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    # flowables.append(line)
-    # Flatten the data list and join as a string with line breaks
-    flattened_data_2 = [str(item) for item in data_2]
-    formatted_data_2 = "\n".join(flattened_data_2)
-
-    # Now, you can create a Paragraph object using 'formatted_data'
-    paragraph_2 = Paragraph(formatted_data_2)
-    flowables.append(paragraph_2)
-    # Add a horizontal line to separate content
-    # line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
-    # flowables.append(line)
-    
+   
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
         [ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements],
