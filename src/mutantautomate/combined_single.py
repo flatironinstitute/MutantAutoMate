@@ -610,11 +610,11 @@ def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
     flowables.append(screenshot_img)
 
     # Load and add image A and image B to the flowables (side by side)
-    image_a_path_resized = resize_image(image_a_path, max_width=100, max_height=100)
-    image_b_path_resized = resize_image(image_b_path, max_width=100, max_height=100)
+    image_a_path_resized = resize_image(image_a_path, max_width=50, max_height=50)
+    image_b_path_resized = resize_image(image_b_path, max_width=50, max_height=50)
 
-    image_a = Image(image_a_path_resized, width=100, height=100)  # Adjust size as needed
-    image_b = Image(image_b_path_resized, width=100, height=100)  # Adjust size as needed
+    image_a = Image(image_a_path_resized, width=50, height=50)  # Adjust size as needed
+    image_b = Image(image_b_path_resized, width=50, height=50)  # Adjust size as needed
 
     # Create a Table to hold image A and image B side by side
     table_data = [
