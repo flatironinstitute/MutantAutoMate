@@ -33,7 +33,7 @@ esac
 pdb_file=$(basename "$file1")
 echo "Residue name: $residue_name"
 
-# Create the script
+# Create the script for the normal screenshot
 echo "bg_color white
 
 load $file1
@@ -63,5 +63,34 @@ ray
 png ${pdb_file%.*}-${residue_code}.png, width=800, height=600, dpi=300
 quit" > try1.pml
 
-# Run the script with PyMOL
+# Create the script for the zoomed-in screenshot
+echo "bg_color white
+
+load $file1
+
+# Color the whole protein green
+color green
+
+# Zoom in on the selected residue
+zoom resn ${residue_code}
+
+# Show only the selected residue and color it red
+show sticks, resn ${residue_code}
+color red, resn ${residue_code}
+
+# Label the zoomed-in residue
+set label_size, 20  # Adjusted label size
+set label_color, black
+set label_font_id, 11
+pseudoatom foo
+set label_position,(-1, 5, 2)  # Adjusted position
+label foo, '${residue_code}'
+
+set ray_opaque_background, 1
+ray
+png ${pdb_file%.*}-${residue_code}_zoomed.png, width=800, height=600, dpi=300
+quit" > try1_zoomed.pml
+
+# Run the scripts with PyMOL
 pymol -c try1.pml
+pymol -c try1_zoomed.pml
