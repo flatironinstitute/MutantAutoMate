@@ -3,9 +3,22 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Frame
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Spacer
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Image, Paragraph, HRFlowable, ListFlowable, ListItem, Spacer, Table
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import letter
+from PIL import Image as PILImage
+import tempfile
 from reportlab.lib import colors
+from io import BytesIO
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus.flowables import HRFlowable
 from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from PIL import Image as PILImage
+from reportlab.lib import utils
+from reportlab.platypus.frames import Frame
 #remove redundant ones from above^^^ clean code
 import requests
 from bs4 import BeautifulSoup
@@ -38,7 +51,6 @@ import mdtraj as md
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib import utils
-from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem, Spacer, PageTemplate
 import subprocess
@@ -492,13 +504,33 @@ if __name__ == "__main__":
             grantham_output_extra = "Not a potentially high score."
 
 
-# Generate a PDF summary for the mutant
-def generate_pdf(image_path, screenshot_path):
+def resize_image(image_path, max_width, max_height):
+    img = PILImage.open(image_path)
+    
+    aspect_ratio = img.width / img.height
+    if aspect_ratio > 1:
+        new_width = min(img.width, max_width)
+        new_height = int(new_width / aspect_ratio)
+    else:
+        new_height = min(img.height, max_height)
+        new_width = int(new_height * aspect_ratio)
+    
+    img_resized = img.resize((new_width, new_height), resample=PILImage.LANCZOS)
+    
+    # Create a temporary file to save the resized image
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+        img_resized.save(temp_file, format="PNG")
+        return temp_file.name
+
+def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue1 + str(residue2)
-    doc = SimpleDocTemplate(f"{name}.pdf", pagesize=letter, rightMargin=50)
+    pdf_filename = f"{name}.pdf"
+    doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=50)
     styles = getSampleStyleSheet()
-    first_line= f"These are the MutantAutoMate results for the gene <i>{gene_name}</i> which goes from <i>{amino_acids.get(residue1)}</i> at position {position} to <i>{amino_acids.get(residue2)}</i> mutation:"
+
+    first_line = f"These are the MutantAutoMate results for the gene <i>{gene_name}</i> which goes from <i>{amino_acids.get(residue1)}</i> at position {position} to <i>{amino_acids.get(residue2)}</i> mutation:"
+
     # Define the print statements to be written to the PDF
     print_statements = [
         f"The PDB ID and the UniProt ID for the isoform are <b>{pdb_ids[0]}</b> and <b>{matching_isoforms[0]}</b>.",
@@ -508,16 +540,6 @@ def generate_pdf(image_path, screenshot_path):
         f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
     ]
     what_is_mutantA = "MutantAutoMate automates the retrieval of relevant PDB structures for a specified gene isoform and mutant, generates descriptive PDFs, and produces structural snapshots. It facilitates the analysis of mutations, exemplified by providing a list of matching isoforms for a specific residue."
-    
-    
-    print(grantham_output_extra)
-    description_2 = f"{grantham_output_extra}"
-    print(grantham_output_extra)
-   
-    # Create a table to hold the elements side by side with the determined background color
-    data_2 = [
-         description_2
-    ]
 
     # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
     flowables = []
@@ -547,7 +569,6 @@ def generate_pdf(image_path, screenshot_path):
     italic_small_style.fontSize = 8 
 
     what = Paragraph(what_is_mutantA, italic_small_style)
-
     what.top = doc.pagesize[1] - logo_height - 40  # You can adjust the value as needed
 
     flowables.append(what)
@@ -560,8 +581,8 @@ def generate_pdf(image_path, screenshot_path):
 
     # Add a horizontal line to separate content
     line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    flowables.append(line)
 
-   
     # Create a Bullet List flowable
     bullet_list = ListFlowable(
         [ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements],
@@ -571,24 +592,11 @@ def generate_pdf(image_path, screenshot_path):
         start='bulletchar',
         bulletColor='black',
         bulletFontName='Helvetica',
-        bulletFontSize=10,
+        bulletFontSize=8,  # Adjust the font size as needed
         bulletOffsetY=-2,
         bulletDedent='auto',
         spaceAfter=12
     )
-    # Create a frame to surround the text
-    frame = Frame(
-        x1=inch,  # Adjust the left margin
-        y1=inch,  # Adjust the bottom margin
-        width=letter[0] - 2 * inch,  # Adjust the width
-        height=letter[1] - 2 * inch,  # Adjust the height
-        showBoundary=1,  # Show the boundary of the frame
-        leftPadding=12,  # Adjust the left padding inside the frame
-        rightPadding=12,  # Adjust the right padding inside the frame
-        topPadding=12,  # Adjust the top padding inside the frame
-        bottomPadding=12  # Adjust the bottom padding inside the frame
-    )
-
     flowables.append(bullet_list)
 
     # Add a horizontal line to separate content
@@ -596,29 +604,43 @@ def generate_pdf(image_path, screenshot_path):
     flowables.append(line)
 
     # Load and add the screenshot image to the flowables
-    screenshot = utils.ImageReader(screenshot_path)
-    screenshot_width, screenshot_height = screenshot.getSize()
-    screenshot_scale = 0.5  # Adjust the scale as needed
-    screenshot_width *= screenshot_scale
-    screenshot_height *= screenshot_scale
-    screenshot_img = Image(screenshot_path, width=screenshot_width, height=screenshot_height)
+    screenshot_img_path_resized = resize_image(screenshot_path, max_width=400, max_height=400)
+    screenshot_img = Image(screenshot_img_path_resized, width=200, height=200)  # Adjust size as needed
     screenshot_img.hAlign = 'CENTER'  # Align the image to the center
     flowables.append(screenshot_img)
 
-    # Build the PDF document with the flowables
-    doc.addPageTemplates([PageTemplate(id='frame', frames=[frame])])
+    # Load and add image A and image B to the flowables (side by side)
+    image_a_path_resized = resize_image(image_a_path, max_width=100, max_height=100)
+    image_b_path_resized = resize_image(image_b_path, max_width=100, max_height=100)
+
+    image_a = Image(image_a_path_resized, width=100, height=100)  # Adjust size as needed
+    image_b = Image(image_b_path_resized, width=100, height=100)  # Adjust size as needed
+
+    # Create a Table to hold image A and image B side by side
+    table_data = [
+        [image_a, Spacer(1, 12), Spacer(1, 12), image_b]
+    ]
+    image_table = Table(table_data, colWidths=[doc.width / 5] * 5)
+    flowables.append(image_table)
 
     doc.build(flowables)
-    print("Your PDF summary for this mutant has been created!")
+
+    print(f"Your PDF summary for this mutant has been created: {pdf_filename}")
+
+    # Return the generated PDF filename
+    return pdf_filename
 
 # Get the directory of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Set the image filename
 image_filename = "logo.png"
-
+image_aA_path = "FI.png"
+image_bB_path = "CCB.png"
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
+image_a_path = os.path.join(current_dir, image_aA_path)
+image_b_path = os.path.join(current_dir, image_bB_path)
 
-# Call the function to generate the PDF
-generate_pdf(image_path, screenshot)
+# Call the function to generate the PDF with all the information
+generate_pdf(image_path, screenshot, image_a_path, image_b_path)
