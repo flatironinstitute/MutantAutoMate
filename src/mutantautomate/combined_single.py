@@ -1,5 +1,6 @@
 # Import required libraries
 from reportlab.lib.pagesizes import letter
+from PIL import Image as PILImage, ImageFilter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Frame
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Spacer
@@ -359,7 +360,7 @@ score = charge_statement(residue1, residue2)
 
 # Define the path for the snapshot script
 bash_script = os.path.join(current_dir, "snapshot.sh")
-
+subprocess.run(["bash", bash_script, pdbpath, residue2])
 
 # Extract the filename from the bash_script path
 filename = os.path.basename(bash_script)
@@ -515,14 +516,16 @@ def resize_image(image_path, max_width, max_height):
         new_height = min(img.height, max_height)
         new_width = int(new_height * aspect_ratio)
     
-    img_resized = img.resize((new_width, new_height), resample=PILImage.LANCZOS)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=DeprecationWarning)
+        img_resized = img.resize((new_width, new_height), resample=PILImage.LANCZOS)
     
     # Create a temporary file to save the resized image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
         img_resized.save(temp_file, format="PNG")
         return temp_file.name
 
-def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
+def generate_pdf(image_path, screenshot_path, zoomed_image_path, image_a_path, image_b_path):
     # Create a new PDF document with letter size
     name = gene_name + "_" + residue1 + str(residue2)
     pdf_filename = f"{name}.pdf"
@@ -537,7 +540,7 @@ def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
         f"{grantham_output_extra}",
         f"{output_message}",
         f"{structured_or_not}. "
-        f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
+        # f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
     ]
     what_is_mutantA = "MutantAutoMate automates the retrieval of relevant PDB structures for a specified gene isoform and mutant, generates descriptive PDFs, and produces structural snapshots. It facilitates the analysis of mutations, exemplified by providing a list of matching isoforms for a specific residue."
 
@@ -566,13 +569,13 @@ def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
     # Create a new style with italic font and smaller size
     italic_small_style = styles["Normal"].clone("ItalicSmall")
     italic_small_style.fontName = "Helvetica-Oblique"  # Change to your preferred italic font
-    italic_small_style.fontSize = 8 
+    italic_small_style.fontSize = 6
 
     what = Paragraph(what_is_mutantA, italic_small_style)
     what.top = doc.pagesize[1] - logo_height - 40  # You can adjust the value as needed
 
     flowables.append(what)
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
     flowables.append(line)
     styles = getSampleStyleSheet()
     paragraph_style = styles["Normal"]
@@ -580,7 +583,7 @@ def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
     flowables.append(paragraph1)
 
     # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
     flowables.append(line)
 
     # Create a Bullet List flowable
@@ -592,35 +595,48 @@ def generate_pdf(image_path, screenshot_path, image_a_path, image_b_path):
         start='bulletchar',
         bulletColor='black',
         bulletFontName='Helvetica',
-        bulletFontSize=8,  # Adjust the font size as needed
+        bulletFontSize=7,  # Adjust the font size as needed
         bulletOffsetY=-2,
         bulletDedent='auto',
-        spaceAfter=12
+        spaceAfter=8
     )
     flowables.append(bullet_list)
 
     # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=12, spaceAfter=12)
+    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
     flowables.append(line)
 
     # Load and add the screenshot image to the flowables
     screenshot_img_path_resized = resize_image(screenshot_path, max_width=400, max_height=400)
     screenshot_img = Image(screenshot_img_path_resized, width=200, height=200)  # Adjust size as needed
     screenshot_img.hAlign = 'CENTER'  # Align the image to the center
-    flowables.append(screenshot_img)
+    # flowables.append(screenshot_img)
+
+    # Load and add the zoomed-in residue image to the flowables
+    zoomed_img_path_resized = resize_image(zoomed_image_path, max_width=400, max_height=400)
+    zoomed_img = Image(zoomed_img_path_resized, width=100, height=100)  # Adjust size as needed
+    zoomed_img.hAlign = 'CENTER'  # Align the image to the center
+    # flowables.append(zoomed_img)
+
+      # Create a Table to hold image A and image B side by side
+    table_data_1 = [
+        [screenshot_img, Spacer(1, 12), Spacer(1, 12), zoomed_img]
+    ]
+    image_table_1 = Table(table_data_1, colWidths=[doc.width / 10] * 10)
+    flowables.append(image_table_1)
 
     # Load and add image A and image B to the flowables (side by side)
     image_a_path_resized = resize_image(image_a_path, max_width=50, max_height=50)
     image_b_path_resized = resize_image(image_b_path, max_width=50, max_height=50)
 
-    image_a = Image(image_a_path_resized, width=50, height=50)  # Adjust size as needed
-    image_b = Image(image_b_path_resized, width=50, height=50)  # Adjust size as needed
+    image_a = Image(image_a_path_resized, width=50, height=30)  # Adjust size as needed
+    image_b = Image(image_b_path_resized, width=50, height=30)  # Adjust size as needed
 
     # Create a Table to hold image A and image B side by side
     table_data = [
         [image_a, Spacer(1, 12), Spacer(1, 12), image_b]
     ]
-    image_table = Table(table_data, colWidths=[doc.width / 5] * 5)
+    image_table = Table(table_data, colWidths=[doc.width / 10] * 10)
     flowables.append(image_table)
 
     doc.build(flowables)
@@ -637,10 +653,43 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 image_filename = "logo.png"
 image_aA_path = "FI.png"
 image_bB_path = "CCB.png"
+zoomed_image_path = "zoom.png"  
+
+# Define a dictionary mapping single-letter amino acid codes to three-letter codes
+amino_acid_mapping = {
+    'A': 'ALA',
+    'R': 'ARG',
+    'N': 'ASN',
+    'D': 'ASP',
+    'C': 'CYS',
+    'Q': 'GLN',
+    'E': 'GLU',
+    'G': 'GLY',
+    'H': 'HIS',
+    'I': 'ILE',
+    'L': 'LEU',
+    'K': 'LYS',
+    'M': 'MET',
+    'F': 'PHE',
+    'P': 'PRO',
+    'S': 'SER',
+    'T': 'THR',
+    'W': 'TRP',
+    'Y': 'TYR',
+    'V': 'VAL',
+}
+
+# Get the residue code based on the single-letter code
+residue_code = amino_acid_mapping.get(residue1, residue1)
+
+# Run the bash script using subprocess with arguments
+output = subprocess.run(["bash", bash_script, file1, residue1], capture_output=True, text=True)
+
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
 image_a_path = os.path.join(current_dir, image_aA_path)
 image_b_path = os.path.join(current_dir, image_bB_path)
+zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-zoom.png")
 
 # Call the function to generate the PDF with all the information
-generate_pdf(image_path, screenshot, image_a_path, image_b_path)
+generate_pdf(image_path, screenshot, zoomed_image_path, image_a_path, image_b_path)
