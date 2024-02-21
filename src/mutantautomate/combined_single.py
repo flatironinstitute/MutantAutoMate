@@ -1,5 +1,9 @@
 # Import required libraries
 from reportlab.lib.pagesizes import letter
+from jinja2 import Environment, FileSystemLoader
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Image, Spacer, Table, Paragraph, PageTemplate
 from PIL import Image as PILImage, ImageFilter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Frame
 from reportlab.lib.styles import getSampleStyleSheet
@@ -357,39 +361,53 @@ def charge_statement(residue1, residue2):
 # Get the charge change score
 score = charge_statement(residue1, residue2)
 
+import os
+import subprocess
+import mdtraj as md
 
 # Define the path for the snapshot script
 bash_script = os.path.join(current_dir, "snapshot.sh")
-subprocess.run(["bash", bash_script, pdbpath, residue2])
-
-# Extract the filename from the bash_script path
-filename = os.path.basename(bash_script)
-
-
-# Append "snapshot.sh" to the filename
-snapshot_script = os.path.join(current_dir, filename, "snapshot.sh")
-
-
-# Set file1 to the pdbpath
 file1 = pdbpath
 
+# Convert one-letter code to three-letter code
+amino_acid_mapping = {
+    'A': 'ALA',
+    'R': 'ARG',
+    'N': 'ASN',
+    'D': 'ASP',
+    'C': 'CYS',
+    'Q': 'GLN',
+    'E': 'GLU',
+    'G': 'GLY',
+    'H': 'HIS',
+    'I': 'ILE',
+    'L': 'LEU',
+    'K': 'LYS',
+    'M': 'MET',
+    'F': 'PHE',
+    'P': 'PRO',
+    'S': 'SER',
+    'T': 'THR',
+    'W': 'TRP',
+    'Y': 'TYR',
+    'V': 'VAL',
+}
 
+# Convert residue1 one-letter code to three-letter code
+residue1_three_letter = amino_acid_mapping.get(residue1, residue1)
 # Convert the position to string
 converted_position = str(position)
 
-
 # Run the bash script using subprocess with arguments
-output = subprocess.run(["bash", bash_script, file1, residue2], capture_output=True, text=True)
-
+output = subprocess.run(["bash", bash_script, pdbpath, residue1_three_letter, converted_position], capture_output=True, text=True)
 
 # Extract the output path from the command's standard output
 screenshot = os.path.join(current_dir, "snap.png")
-
+# print(screenshot)
 
 # Load the protein trajectory and topology using mdtraj
 traj = md.load(pdbpath)
 topology = traj.topology
-
 
 # Compute the RMSD of each frame in the trajectory to a reference structure
 reference_frame = traj[0]  # Assuming the first frame is your reference
@@ -445,7 +463,6 @@ amino_acids = {
     'W': 'Tryptophan',
     'Y': 'Tyrosine'
 }
-
 
 target_residue_name = topology.residue(position).name
 
@@ -505,155 +522,201 @@ if __name__ == "__main__":
             grantham_output_extra = "Not a potentially high score."
 
 
-def resize_image(image_path, max_width, max_height):
-    img = PILImage.open(image_path)
-    
-    aspect_ratio = img.width / img.height
-    if aspect_ratio > 1:
-        new_width = min(img.width, max_width)
-        new_height = int(new_width / aspect_ratio)
-    else:
-        new_height = min(img.height, max_height)
-        new_width = int(new_height * aspect_ratio)
-    
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=DeprecationWarning)
-        img_resized = img.resize((new_width, new_height), resample=PILImage.LANCZOS)
-    
-    # Create a temporary file to save the resized image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
-        img_resized.save(temp_file, format="PNG")
-        return temp_file.name
+from weasyprint import HTML
 
-def generate_pdf(image_path, screenshot_path, zoomed_image_path, image_a_path, image_b_path):
-    # Create a new PDF document with letter size
+def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path):
+    # HTML content with placeholders for variables
     name = gene_name + "_" + residue1 + str(residue2)
     pdf_filename = f"{name}.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=50)
-    styles = getSampleStyleSheet()
+    html_content = f'''
+    <!DOCTYPE html>
 
-    first_line = f"These are the MutantAutoMate results for the gene <i>{gene_name}</i> which goes from <i>{amino_acids.get(residue1)}</i> at position {position} to <i>{amino_acids.get(residue2)}</i> mutation:"
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>MutantAutoMate Report</title>
+        <link href="report.css" rel="stylesheet">
+        <style>
+            body {{
+                font-family: 'Fira Sans', sans-serif;
+                background-color: #f0f0f0;
+                color: #333;
+                padding: 20px;
+            }}
 
-    # Define the print statements to be written to the PDF
-    print_statements = [
-        f"The PDB ID and the UniProt ID for the isoform are <b>{pdb_ids[0]}</b> and <b>{matching_isoforms[0]}</b>.",
-        f"{grantham_output_extra}",
-        f"{output_message}",
-        f"{structured_or_not}. "
-        # f" Parameters that may contribute to the pathogenicity of the mutant are: charge change, presence on alpha-helix strand, and change in solvent accessible surface area.",
-    ]
-    what_is_mutantA = "MutantAutoMate automates the retrieval of relevant PDB structures for a specified gene isoform and mutant, generates descriptive PDFs, and produces structural snapshots. It facilitates the analysis of mutations, exemplified by providing a list of matching isoforms for a specific residue."
+            header {{
+                background-color: #fbc847; /* Update header background color */
+                color: #333; /* Update header text color */
+                padding: 10px;
+                text-align: center;
+            }}
 
-    # Create a list to hold the flowables (Paragraphs, Images, and Bullet List)
-    flowables = []
+            header {{
+            background-color: #fbc847;
+            color: #333;
+            padding: 10px;
+            text-align: center;
+            position: relative; /* Add relative positioning */
+        }}
 
-    # Load and add the logo image to the flowables
-    logo = utils.ImageReader(image_path)
-    logo_width, logo_height = logo.getSize()
-    logo_scale = 0.1  # Adjust the scale as needed
-    logo_width *= logo_scale
-    logo_height *= logo_scale
-    img = Image(image_path, width=logo_width, height=logo_height)
-    img.hAlign = 'RIGHT'  # Align the image to the right side
-    img.top = doc.pagesize[1] - logo_height  # Position the image at the top-right corner
-    flowables.append(img)
+        .logo {{
+            position: absolute; /* Position the logo absolutely within the header */
+            top: 10px;
+            left: 20px;
+            width: 100px; /* Set the width of the logo */
+        }}
 
-    # Add the title at the top of the PDF
-    styles = getSampleStyleSheet()
-    title_text = "MutantAutoMate"
-    title = Paragraph(title_text, styles["Title"])
-    # Adjust the top position to move the title upwards
-    title.top = doc.pagesize[1] - logo_height  # Align with the top of the logo
-    flowables.append(title)
+            nav ul {{
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                background-color: #333;
+                overflow: hidden;
+                margin-bottom: 10px; 
+            }}
 
-    # Create a new style with italic font and smaller size
-    italic_small_style = styles["Normal"].clone("ItalicSmall")
-    italic_small_style.fontName = "Helvetica-Oblique"  # Change to your preferred italic font
-    italic_small_style.fontSize = 6
+            nav li {{
+          
+                margin-bottom: 10px;
+            }}
 
-    what = Paragraph(what_is_mutantA, italic_small_style)
-    what.top = doc.pagesize[1] - logo_height - 40  # You can adjust the value as needed
+            nav li a {{
+                display: block;
+                color: white;
+                text-align: center;
+                padding: 14px 16px;
+                text-decoration: none;
+            }}
 
-    flowables.append(what)
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
-    flowables.append(line)
-    styles = getSampleStyleSheet()
-    paragraph_style = styles["Normal"]
-    paragraph1 = Paragraph(first_line, paragraph_style)
-    flowables.append(paragraph1)
+            main {{
+                padding: 20px;
+            }}
 
-    # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
-    flowables.append(line)
+            footer {{
+                background-color: #fbc847; /* Update footer background color */
+                color: #333; /* Update footer text color */
+                padding: 10px;
+                text-align: center;
+                position: relative; 
+            }}
+            .image-container {{
+                position: relative;
+                text-align: center;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0 20px; 
+            }}
 
-    # Create a Bullet List flowable
-    bullet_list = ListFlowable(
-        [ListItem(Paragraph(statement, styles["Bullet"])) for statement in print_statements],
-        bulletType="bullet",
-        leftIndent=40,
-        rightIndent=10,
-        start='bulletchar',
-        bulletColor='black',
-        bulletFontName='Helvetica',
-        bulletFontSize=7,  # Adjust the font size as needed
-        bulletOffsetY=-2,
-        bulletDedent='auto',
-        spaceAfter=8
-    )
-    flowables.append(bullet_list)
+            .image-container img {{
+                width: 500px;
+                height: 500px;
+                display: block;
+                margin-bottom: 5px;
+                border: 2px solid #333; 
+            }}
+             article {{
+                background-color: #fafafa;
+                padding: 10px;
+                margin-bottom: 40px;
+             }}
+             .bullet-list li {{
+            background: url("{image_path}") no-repeat left center; /* Set image as bullet point */
+            background-size: 50px 50px; /* Set the size of the bullet image */
+            padding-left: 70px; /* Adjust padding to make space for the bullet image */
+            margin-bottom: 30px; /* Add margin between list items */
+        }}
+           .bullet-list {{
+            list-style: none; /* Remove default list styling */
+            padding: 0;
+        }}
+            #visualization-title,
+            #interpretation-title {{
+                page-break-before: always;
+            }}
+            .footer-images {{
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }}
+        .footer-images img {{
+            width: 60px; /* Set the width of the small images */
+            height: 30px; /* Set the height of the small images */
+            margin: 0 10px; /* Add margin between images */
+        }}
 
-    # Add a horizontal line to separate content
-    line = HRFlowable(width="100%", thickness=1, color="black", spaceBefore=8, spaceAfter=8)
-    flowables.append(line)
+            h2 {{
+                margin-top: 40px; /* Increase margin for better spacing */
+            }}
 
-    # Load and add the screenshot image to the flowables
-    screenshot_img_path_resized = resize_image(screenshot_path, max_width=400, max_height=400)
-    screenshot_img = Image(screenshot_img_path_resized, width=200, height=200)  # Adjust size as needed
-    screenshot_img.hAlign = 'CENTER'  # Align the image to the center
-    # flowables.append(screenshot_img)
+            h3 {{
+                margin-top: 20px; /* Increase margin for better spacing */
+            }}
+        </style>
+    </head>
+<body>
+    
+    <header>
+        <h1>MutantAutoMate Report</h1>
+    </header>
+    
 
-    # Load and add the zoomed-in residue image to the flowables
-    zoomed_img_path_resized = resize_image(zoomed_image_path, max_width=400, max_height=400)
-    zoomed_img = Image(zoomed_img_path_resized, width=100, height=100)  # Adjust size as needed
-    zoomed_img.hAlign = 'CENTER'  # Align the image to the center
-    # flowables.append(zoomed_img)
 
-      # Create a Table to hold image A and image B side by side
-    table_data_1 = [
-        [screenshot_img, Spacer(1, 12), Spacer(1, 12), zoomed_img]
-    ]
-    image_table_1 = Table(table_data_1, colWidths=[doc.width / 10] * 10)
-    flowables.append(image_table_1)
+    <main>
 
-    # Load and add image A and image B to the flowables (side by side)
-    image_a_path_resized = resize_image(image_a_path, max_width=50, max_height=50)
-    image_b_path_resized = resize_image(image_b_path, max_width=50, max_height=50)
+            <!-- Add your images here -->
+            <div style="text-align: center;">
+                <div style="display: inline-block; text-align: center;">
+                    <img src="{normal_image_path}" alt="Image A" style="width: 300px; height: 300px; border: 1px solid black; margin-bottom: 10px; display: block;">
+                    <p><i>Residue highlighted in red</i></p>
+                </div>
+                <div style="display: inline-block; text-align: center;">
+                    <img src="{zoomed_image_path}" alt="Image B" style="width: 100px; height: 100px; border: 1px solid black; display: block;">
+                    <p><i>Zoomed in residue views</i></p>
+                </div>
+                <br>
+                
+            </div>
+        
 
-    image_a = Image(image_a_path_resized, width=50, height=30)  # Adjust size as needed
-    image_b = Image(image_b_path_resized, width=50, height=30)  # Adjust size as needed
+            
+            <ul>
+                <ul class="bullet-list">
+                <li>MutantAutoMate is a tool that analyzes mutations in genes.</li>
+                <li>The PDB ID and the UniProt ID for the selected isoform are <b>{pdb_ids[0]}</b> and <b>{matching_isoforms[0]}</b>.</li>
+                <li>{grantham_output_extra}</li>
+                <li>{output_message}</li>
+                <li>{structured_or_not}.</li>
+        </ul>
+            </ul>
+            
+        </section>
+    </main>
 
-    # Create a Table to hold image A and image B side by side
-    table_data = [
-        [image_a, Spacer(1, 12), Spacer(1, 12), image_b]
-    ]
-    image_table = Table(table_data, colWidths=[doc.width / 10] * 10)
-    flowables.append(image_table)
+    <footer>
+          <div class="footer-images">
+            <img src="{image_a_path}" alt="Image A Footer">
+            <img src="{image_b_path}" alt="Image B Footer">
+        </div>
+        <p>&copy; 2024 MutantAutoMate. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+    '''
 
-    doc.build(flowables)
+    # Generate PDF using WeasyPrint
+    HTML(string=html_content, base_url=requests.compat.urljoin('file:', os.getcwd())).write_pdf(pdf_filename, presentational_hints=True)
 
-    print(f"Your PDF summary for this mutant has been created: {pdf_filename}")
+    print(f"Your PDF report for this mutant has been created: {pdf_filename}")
 
     # Return the generated PDF filename
     return pdf_filename
 
-# Get the directory of the current file
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Set the image filename
-image_filename = "logo.png"
-image_aA_path = "FI.png"
-image_bB_path = "CCB.png"
-zoomed_image_path = "zoom.png"  
 
 # Define a dictionary mapping single-letter amino acid codes to three-letter codes
 amino_acid_mapping = {
@@ -679,17 +742,30 @@ amino_acid_mapping = {
     'V': 'VAL',
 }
 
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set the image filename
+image_filename = "logo.png"
+image_aA_path = "FI.png"
+image_bB_path = "CCB.png"
+zoomed_image_path = "zoom.png"  
+bg_image_pathh = "bg_image.png"
+
 # Get the residue code based on the single-letter code
+
 residue_code = amino_acid_mapping.get(residue1, residue1)
 
 # Run the bash script using subprocess with arguments
 output = subprocess.run(["bash", bash_script, file1, residue1], capture_output=True, text=True)
-
+#print(output)
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
 image_a_path = os.path.join(current_dir, image_aA_path)
 image_b_path = os.path.join(current_dir, image_bB_path)
-zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-zoom.png")
-
+normal_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}.png")
+zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}-zoom.png")
+bg_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-bg_image.png")
+print(bg_image_path)
 # Call the function to generate the PDF with all the information
-generate_pdf(image_path, screenshot, zoomed_image_path, image_a_path, image_b_path)
+generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path)
