@@ -1,4 +1,6 @@
 # Import required libraries
+import reportlab
+import argparse
 from reportlab.lib.pagesizes import letter
 from jinja2 import Environment, FileSystemLoader
 from reportlab.lib import colors
@@ -66,6 +68,7 @@ from Bio.Align import PairwiseAligner
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=BiopythonDeprecationWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Define regular expression pattern for retrieving next link
 re_next_link = re.compile(r'<(.+)>; rel="next"')
@@ -103,6 +106,7 @@ def get_all_isoforms(gene_name):
             sequence = ''.join(isoform_response.text.strip().split('\n')[1:])
             isoforms.append((isoform, sequence))
         batch_url = get_next_link(response.headers)
+        print(sequence)
     return isoforms
 
 
@@ -115,26 +119,66 @@ def search_residue(residue, position, gene_name):
             matching_isoforms.append(isoform)
     return matching_isoforms
 
+import sys
+import argparse
+
 # Check if the correct number of command-line arguments are provided
-if len(sys.argv) != 5:
-    print("Usage: python file-name.py gene-name residue1 position residue2")
+if len(sys.argv) != 11:
+    print("Usage: python file-name.py --gene-name gene-name --residue1 residue1 --position position --residue2 residue2 --top-isoforms True/False")
     sys.exit(1)
 
+
+import argparse
+
+# Create argument parser
+parser = argparse.ArgumentParser(description='Description of your program')
+
+# Add arguments
+parser.add_argument('--gene-name', type=str, help='Gene name')
+parser.add_argument('--residue1', type=str, help='Residue 1')
+parser.add_argument('--position', type=int, help='Position')
+parser.add_argument('--residue2', type=str, help='Residue 2')
+parser.add_argument('--top-isoforms', type=str, help='Show top isoforms: True/False')
+
+# Parse the arguments
+args = parser.parse_args()
+# Define the function to retrieve the top 5 isoforms of the gene UniProt ID
+def get_top_isoforms(gene_name):
+    isoforms = get_all_isoforms(gene_name)
+    top_5_isoforms = isoforms[:5]
+    top_isoform_list = [isoform for isoform, _ in top_5_isoforms]
+    return top_isoform_list
+
+# Call the function to retrieve the top isoforms conditionally
+if args.top_isoforms.lower() == 'true':
+    top_isoforms = get_top_isoforms(args.gene_name)
+    print("Top 5 isoforms of gene UniProt ID:")
+    for isoform in top_isoforms:
+        print(isoform)
+
+# Rest of your code
+# Continue with the rest of your code here...
+
+# Call the print_top_isoforms function conditionally
+if args.top_isoforms:
+    print(get_top_isoforms(args.gene_name))
+
 # Retrieve command-line arguments
-gene_name = sys.argv[1]
-residue1 = sys.argv[2]
-position = int(sys.argv[3])
-residue2 = sys.argv[4]
+gene_name = args.gene_name
+residue1 = args.residue1
+position = args.position
+residue2 = args.residue2
+top_isoforms = args.top_isoforms
 
 # Display user inputs
 print("Gene Name:", gene_name)
 print("Residue 1:", residue1)
 print("Position:", position)
 print("Residue 2:", residue2)
+print("Top Isoforms:", top_isoforms)
 
 # Search for matching isoforms
 matching_isoforms = search_residue(residue1, position, gene_name)
-#print(matching_isoforms)
 
 def get_gene_name(uniprot_id):
     url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
@@ -170,7 +214,6 @@ else:
     print("Didn't find any matching isoforms for given selection.")
     sys.exit(0)  # Exit the script if no matching isoforms are found
 
-# Rest of the code...
 
 # Function to calculate similarity between two sequences using PairwiseAligner
 def calculate_similarity(sequence1, sequence2):
@@ -196,10 +239,12 @@ def score_isoforms_by_similarity(gene_name, isoforms):
         similarity = calculate_similarity(gene_name, sequence)
         scored_isoforms.append((isoform, similarity))
     scored_isoforms.sort(key=lambda x: x[1], reverse=True)
+    print(scored_isoforms)
     return scored_isoforms[:3]  # Return the top 3 scored isoforms
 
 # Retrieve the sequence for the selected isoforms and return the top 3 isoforms
 top_scored_isoforms = score_isoforms_by_similarity(gene_name, matching_isoforms)
+#print(top_scored_isoforms)
 # Create UniProt object
 u = UniProt()
 
@@ -209,8 +254,7 @@ fasta_string = sequence
 only_element = matching_isoforms[0]
 uniprot_id = only_element[0:6]
 print(uniprot_id)
-
-
+print(matching_isoforms[0:6])
 
 # Define the URL for UniProt data
 url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}"
@@ -243,9 +287,6 @@ if response.status_code == 200:
 else:
     print(f"Error: Failed to retrieve data. Status code: {response.status_code}")
 
-# Rest of the code...
-
-
 # Function to download a PDB file from the Internet
 def download_pdb(pdbcode, datadir, downloadurl="https://files.rcsb.org/download/"):
     pdbfn = pdbcode + ".pdb"
@@ -275,16 +316,10 @@ def new_method_for_alphafold(pdbcode, datadir):
         print("ERROR")
         return outfnm2
 
-
-# # Download or use the new method to get the PDB file
-# if result is None or result is None:
-#     pdbpath = new_method_for_alphafold(uniprot_id, current_dir)  # relative path
-
 pdbpath = download_pdb(pdb_ids[0], current_dir)
 
-# Get user input for residue two
-# residue2 = input("Enter residue two:")
 
+      
 # Define the dictionary of amino acid names
 amino_acids = {
     'A': 'Alanine',
@@ -526,6 +561,14 @@ from weasyprint import HTML
 
 def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path):
     # HTML content with placeholders for variables
+    top_isoforms = ""
+    # Check if top_isoforms argument is True
+    if args.top_isoforms.lower() == 'true':
+        # Retrieve top isoforms
+        top_isoforms_list = get_top_isoforms(args.gene_name)
+        # Concatenate top isoforms into a string
+        top_isoforms = ", ".join(top_isoforms_list)
+
     name = gene_name + "_" + residue1 + str(residue2)
     pdf_filename = f"{name}.pdf"
     html_content = f'''
@@ -542,7 +585,7 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
                 font-family: 'Fira Sans', sans-serif;
                 background-color: #f0f0f0;
                 color: #333;
-                padding: 20px;
+                padding: 10px;
             }}
 
             header {{
@@ -556,15 +599,15 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
             background-color: #fbc847;
             color: #333;
             padding: 10px;
-            text-align: center;
+            text-align: right;
             position: relative; /* Add relative positioning */
         }}
 
         .logo {{
             position: absolute; /* Position the logo absolutely within the header */
             top: 10px;
-            left: 20px;
-            width: 100px; /* Set the width of the logo */
+            left: 10px;
+            width: 90px; /* Set the width of the logo */
         }}
 
             nav ul {{
@@ -610,66 +653,89 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
             }}
 
             .image-container img {{
-                width: 500px;
-                height: 500px;
+                width: 350px;
+                height: 350px;
                 display: block;
                 margin-bottom: 5px;
                 border: 2px solid #333; 
             }}
+            .main-section {{
+                border: 2px solid #333; /* Adjust color and thickness as needed */
+                padding: 20px; /* Adjust padding as needed */
+                margin: 20px 0; /* Adjust margin as needed */
+            }}
+            .footer-text {{
+                font-size: 8px; /* Adjust the font size as needed */
+            }}
+
              article {{
                 background-color: #fafafa;
                 padding: 10px;
                 margin-bottom: 40px;
              }}
-             .bullet-list li {{
-            background: url("{image_path}") no-repeat left center; /* Set image as bullet point */
-            background-size: 50px 50px; /* Set the size of the bullet image */
-            padding-left: 70px; /* Adjust padding to make space for the bullet image */
-            margin-bottom: 30px; /* Add margin between list items */
-        }}
+           .title {{
+                display: inline-block;
+                vertical-align: middle; /* Align vertically */
+            }}
+
            .bullet-list {{
-            list-style: none; /* Remove default list styling */
-            padding: 0;
-        }}
+                list-style-type: disc; 
+                padding: 0;
+                margin-left: 20px; 
+            }}
             #visualization-title,
             #interpretation-title {{
                 page-break-before: always;
             }}
-            .footer-images {{
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }}
-        .footer-images img {{
-            width: 60px; /* Set the width of the small images */
-            height: 30px; /* Set the height of the small images */
-            margin: 0 10px; /* Add margin between images */
-        }}
+           .description {{
+                font-size: 10px; /* Adjust the font size as needed */
+            }}
 
             h2 {{
-                margin-top: 40px; /* Increase margin for better spacing */
+                margin-top: 30px; /* Increase margin for better spacing */
             }}
 
             h3 {{
                 margin-top: 20px; /* Increase margin for better spacing */
             }}
+
+            hr {{
+                border: none;
+                border-top: 2px solid #333; /* Adjust color and thickness as needed */
+                margin: 20px 0; /* Adjust margin as needed */
+            }}
+
         </style>
     </head>
 <body>
     
     <header>
-        <h1>MutantAutoMate Report</h1>
+         <h1 class="title">MutantAutoMate Report</h1>
+         <p class="description"><i>MutantAutoMate is a tool that analyzes mutations in genes.</i></p>
+        <img src="{image_path}" alt="Logo" class="logo">
     </header>
     
 
+    <hr>
+    <main class="main-section">
+        <ul>
+            <li>Report for <b>{name}</b>.</li>
+            <li>The PDB ID for the selected isoform is <b>{pdb_ids[0]}</b>.</li>
+            <li> The Uniprot ID for the selected isoform is <b>{matching_isoforms[0]}</b>.</li>
+            <!-- Include top isoforms list if it exists -->
+            {"<li>Top 5 isoforms of gene UniProt ID: " + top_isoforms + "</li>" if top_isoforms else ""}
 
-    <main>
-
-            <!-- Add your images here -->
+        </ul>
+        <hr>
+          <ul>
+                
+                <li>{grantham_output_extra}</li>
+                <li>{output_message}</li>
+                <li>{structured_or_not}.</li>
+        </ul>
+            </ul>
+   
+             <!-- Add your images here -->
             <div style="text-align: center;">
                 <div style="display: inline-block; text-align: center;">
                     <img src="{normal_image_path}" alt="Image A" style="width: 300px; height: 300px; border: 1px solid black; margin-bottom: 10px; display: block;">
@@ -683,27 +749,13 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
                 
             </div>
         
-
-            
-            <ul>
-                <ul class="bullet-list">
-                <li>MutantAutoMate is a tool that analyzes mutations in genes.</li>
-                <li>The PDB ID and the UniProt ID for the selected isoform are <b>{pdb_ids[0]}</b> and <b>{matching_isoforms[0]}</b>.</li>
-                <li>{grantham_output_extra}</li>
-                <li>{output_message}</li>
-                <li>{structured_or_not}.</li>
-        </ul>
-            </ul>
-            
-        </section>
+      
     </main>
 
     <footer>
-          <div class="footer-images">
-            <img src="{image_a_path}" alt="Image A Footer">
-            <img src="{image_b_path}" alt="Image B Footer">
-        </div>
+          
         <p>&copy; 2024 MutantAutoMate. All rights reserved.</p>
+        <p><i class="footer-text">This report has been generated with basic settings. More advanced options for ML analysis are available.</i></p>
     </footer>
 </body>
 </html>
@@ -766,6 +818,6 @@ image_b_path = os.path.join(current_dir, image_bB_path)
 normal_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}.png")
 zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}-zoom.png")
 bg_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-bg_image.png")
-print(bg_image_path)
+print(image_path)
 # Call the function to generate the PDF with all the information
 generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path)
