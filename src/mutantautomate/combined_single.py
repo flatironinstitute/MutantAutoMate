@@ -106,7 +106,7 @@ def get_all_isoforms(gene_name):
             sequence = ''.join(isoform_response.text.strip().split('\n')[1:])
             isoforms.append((isoform, sequence))
         batch_url = get_next_link(response.headers)
-        print(sequence)
+        #print(sequence)
     return isoforms
 
 
@@ -170,12 +170,6 @@ position = args.position
 residue2 = args.residue2
 top_isoforms = args.top_isoforms
 
-# Display user inputs
-print("Gene Name:", gene_name)
-print("Residue 1:", residue1)
-print("Position:", position)
-print("Residue 2:", residue2)
-print("Top Isoforms:", top_isoforms)
 
 # Search for matching isoforms
 matching_isoforms = search_residue(residue1, position, gene_name)
@@ -239,7 +233,7 @@ def score_isoforms_by_similarity(gene_name, isoforms):
         similarity = calculate_similarity(gene_name, sequence)
         scored_isoforms.append((isoform, similarity))
     scored_isoforms.sort(key=lambda x: x[1], reverse=True)
-    print(scored_isoforms)
+    #print(scored_isoforms)
     return scored_isoforms[:3]  # Return the top 3 scored isoforms
 
 # Retrieve the sequence for the selected isoforms and return the top 3 isoforms
@@ -253,8 +247,8 @@ sequence = u.retrieve(matching_isoforms[0:6], "fasta")
 fasta_string = sequence
 only_element = matching_isoforms[0]
 uniprot_id = only_element[0:6]
-print(uniprot_id)
-print(matching_isoforms[0:6])
+# print(uniprot_id)
+# print(matching_isoforms[0:6])
 
 # Define the URL for UniProt data
 url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}"
@@ -396,10 +390,6 @@ def charge_statement(residue1, residue2):
 # Get the charge change score
 score = charge_statement(residue1, residue2)
 
-import os
-import subprocess
-import mdtraj as md
-
 # Define the path for the snapshot script
 bash_script = os.path.join(current_dir, "snapshot.sh")
 file1 = pdbpath
@@ -438,7 +428,6 @@ output = subprocess.run(["bash", bash_script, pdbpath, residue1_three_letter, co
 
 # Extract the output path from the command's standard output
 screenshot = os.path.join(current_dir, "snap.png")
-# print(screenshot)
 
 # Load the protein trajectory and topology using mdtraj
 traj = md.load(pdbpath)
@@ -448,32 +437,6 @@ topology = traj.topology
 reference_frame = traj[0]  # Assuming the first frame is your reference
 rmsd = md.rmsd(traj, reference_frame)
 
-
-# Compute the SASA for each residue in each frame
-sasa = md.shrake_rupley(traj)
-
-
-# Choose thresholds for RMSD and SASA to determine the structured region
-rmsd_threshold = 0.3  # Adjust as per your requirements
-sasa_threshold = 10.0  # Adjust as per your requirements
-
-
-# Ensure that rmsd and sasa have the same number of frames
-num_frames = min(rmsd.shape[0], sasa.shape[0])
-rmsd = rmsd[:num_frames]
-sasa = sasa[:num_frames]
-
-
-# Find the frames where the RMSD and SASA values are below the thresholds
-structured_frames = (rmsd < rmsd_threshold) & (sasa[:, :, np.newaxis] > sasa_threshold)
-
-
-# Find the residues that are present in the structured frames
-structured_residues = []
-for residue in topology.residues:
-    residue_frames = structured_frames[:, residue.index]
-    if residue_frames.any():
-        structured_residues.append(residue)
 
 # Define the dictionary of amino acid names
 amino_acids = {
@@ -499,27 +462,32 @@ amino_acids = {
     'Y': 'Tyrosine'
 }
 
-target_residue_name = topology.residue(position).name
 
-if target_residue_name is None:
-    print(f'Invalid amino acid code: {residue1}')
+# Load the trajectory data and topology using MDTraj
+traj = md.load(pdbpath)
+topology = traj.topology
+
+# Calculate DSSP assignments
+dssp = md.compute_dssp(traj)
+
+# Example: Create a list of structured frames indices
+structured_frames_indices = []
+for frame_idx, frame_dssp in enumerate(dssp):
+    if any(residue_dssp in {'E', 'H'} for residue_dssp in frame_dssp):
+        structured_frames_indices.append(frame_idx)
+
+# Example: Check if the target residue is present in the structured frames
+target_residue_index = 0  # Set your target residue index here
+if any(frame_idx == target_residue_index for frame_idx in structured_frames_indices):
+    structured_or_not = f"Residue {position} is in a structured part of the protein"
 else:
-    # Check if the target residue is present in the structured frames
-    target_residue_index = topology.residue(position).index
-    residue_frames = structured_frames[:, target_residue_index]
-    if residue_frames.any():
-        structured_or_not = f"Residue {amino_acids.get(residue1)} is in a structured part of the protein"
-    else:
-        structured_or_not = f"Residue {amino_acids.get(residue2)} is not in a structured part of the protein"
-
+    structured_or_not = f"Residue {position} is not in a structured part of the protein"
 
 # Generate the final output message
 output_message = (
     "This is a mutation from " + str(score) + ".\n" 
     
 )
-print(output_message)
-
 
 def calculate_grantham_score(grantham_dict, aa1, aa2):
     key = (aa1, aa2)
@@ -538,7 +506,6 @@ if __name__ == "__main__":
     # Take user input for amino acids
     amino_acid1 = residue1 #input("Enter the first amino acid: ").upper()
     amino_acid2 = residue2 #input("Enter the second amino acid: ").upper()
-    print(amino_acid1, amino_acid2)
 
     score = calculate_grantham_score(grantham_dict, amino_acid1, amino_acid2)
 
@@ -718,8 +685,8 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
 
     <hr>
     <main class="main-section">
-        <ul>
-            <li>Report for <b>{name}</b>.</li>
+        <ul style="font-size: small;">
+            <li>Report for <b>{gene_name} which goes from {amino_acids.get(residue1)} at position {position} to {amino_acids.get(residue2)}</b>.</li>
             <li>The PDB ID for the selected isoform is <b>{pdb_ids[0]}</b>.</li>
             <li> The Uniprot ID for the selected isoform is <b>{matching_isoforms[0]}</b>.</li>
             <!-- Include top isoforms list if it exists -->
@@ -727,7 +694,7 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
 
         </ul>
         <hr>
-          <ul>
+          <ul style="font-size: small;">
                 
                 <li>{grantham_output_extra}</li>
                 <li>{output_message}</li>
@@ -754,7 +721,8 @@ def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path,
 
     <footer>
           
-        <p>&copy; 2024 MutantAutoMate. All rights reserved.</p>
+        <p><i class="footer-text">&copy; 2024 MutantAutoMate. All rights reserved.</i></p>
+        <p><i class="footer-text">References: Grantham Score: R. Grantham ,Amino Acid Difference Formula to Help Explain Protein Evolution.Science185,862-864(1974).</i></p>
         <p><i class="footer-text">This report has been generated with basic settings. More advanced options for ML analysis are available.</i></p>
     </footer>
 </body>
@@ -809,8 +777,8 @@ bg_image_pathh = "bg_image.png"
 residue_code = amino_acid_mapping.get(residue1, residue1)
 
 # Run the bash script using subprocess with arguments
-output = subprocess.run(["bash", bash_script, file1, residue1], capture_output=True, text=True)
-#print(output)
+output = subprocess.run(["bash", bash_script, file1, residue1, residue2], capture_output=True, text=True)
+print(output)
 # Join the directory path with the image filename
 image_path = os.path.join(current_dir, image_filename)
 image_a_path = os.path.join(current_dir, image_aA_path)
