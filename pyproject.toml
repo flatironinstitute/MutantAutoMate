@@ -21,4 +21,5 @@ dependencies = [
     "fpdf",
     "Bio",
     "chardet",
+    "flask",
 ]
