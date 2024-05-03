@@ -15,5 +15,5 @@ RUN chmod +x snapshot.sh
 EXPOSE 8000
 
 # Define the command to run your Python application
-CMD ["python", "app.py"]
+CMD ["python", "src/mutantautomate/app.py"]
 
