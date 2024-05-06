@@ -10,6 +10,20 @@ name = "mutantautomate"
 version = "0.0.1"
 dependencies = [
     "numpy",
+    "argparse",
+    "jinja2",
+    "PIL",
+    "requests",
+    "bs4",
+    "json",
+    "ast",
+    "re",
+    "gunicorn",
+    "os",
+    "urllib",
+    "subprocess",
+    "warnings",
+    "weasyprint",
     "pandas",
     "requests",
     "pypdb",
@@ -21,12 +35,5 @@ dependencies = [
     "fpdf",
     "Bio",
     "chardet",
+    "flask",
 ]
-
-[tool.poetry.dependencies]
-numpy = "^1.20.0"
-pandas = "^1.3.0"
-requests = "^2.26.0"
-# Add other dependencies here
-flask = "^2.0.1"
-
