@@ -1,0 +1,13 @@
+numpy
+pandas
+requests
+pypdb
+bioservices
+reportlab
+mdtraj
+seaborn
+matplotlib
+fpdf
+Bio
+chardet
+flask
