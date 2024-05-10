@@ -16,4 +16,3 @@ fpdf
 biopython
 chardet
 flask
-
