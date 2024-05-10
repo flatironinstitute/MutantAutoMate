@@ -119,16 +119,10 @@ def search_residue(residue, position, gene_name):
             matching_isoforms.append(isoform)
     return matching_isoforms
 
-import sys
-import argparse
-
 # Check if the correct number of command-line arguments are provided
 if len(sys.argv) != 11:
     print("Usage: python file-name.py --gene-name gene-name --residue1 residue1 --position position --residue2 residue2 --top-isoforms True/False")
     sys.exit(1)
-
-
-import argparse
 
 # Create argument parser
 parser = argparse.ArgumentParser(description='Description of your program')
