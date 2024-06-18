@@ -1,2 +1,1 @@
-web: gunicorn app:app
-
+web: gunicorn src.mutantautomate.app:app
