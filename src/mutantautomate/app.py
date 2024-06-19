@@ -62,7 +62,7 @@ def index():
         top_isoforms = request.form['top-isoforms']
         
         # Construct a response based on the received parameters
-        response_text = subprocess.run(command, shell=True, capture_output=True, text=True)
+        response_text = (subprocess.run(command, shell=True, capture_output=True, text=True)).stdout
         #f"Gene Name: {gene_name}, Residue1: {residue1}, Position: {position}, Residue2: {residue2}, Top Isoforms: {top_isoforms}"
         
         return render_template('result.html', response=response_text)
