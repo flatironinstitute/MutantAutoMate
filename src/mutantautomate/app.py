@@ -46,12 +46,27 @@
     
 #     app.run(debug=True)
 
-from flask import Flask, render_template
+from flask import Flask, request, render_template
 
 app = Flask(__name__)
 
-@app.route('/')
+# Define the root route
+@app.route('/', methods=['GET', 'POST'])
 def index():
+    if request.method == 'POST':
+        # Retrieve form data
+        gene_name = request.form['gene-name']
+        residue1 = request.form['residue1']
+        position = request.form['position']
+        residue2 = request.form['residue2']
+        top_isoforms = request.form['top-isoforms']
+        
+        # Construct a response based on the received parameters
+        response_text = f"Gene Name: {gene_name}, Residue1: {residue1}, Position: {position}, Residue2: {residue2}, Top Isoforms: {top_isoforms}"
+        
+        return render_template('result.html', response=response_text)
+    
+    # Render the HTML form template for GET requests
     return render_template('index.html')
 
 if __name__ == '__main__':
