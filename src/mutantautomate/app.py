@@ -72,6 +72,7 @@ def index():
         try:
             # Run the command and capture output
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            print(result)
             # Assuming the PDB file path is passed as an argument to app.py
             pdb_file_path = sys.argv[1]
             
