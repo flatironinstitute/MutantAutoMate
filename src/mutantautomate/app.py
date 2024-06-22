@@ -14,7 +14,7 @@ def index():
         top_isoforms = request.form['top-isoforms']
         
         # Construct command to execute
-        command = f'python3 combined_single.py --gene-name {gene_name} --residue1 {residue1} --position {position} --residue2 {residue2} --top-isoforms {top_isoforms}'
+        command = f'python3 src/mutantautomate/combined_single.py --gene-name {gene_name} --residue1 {residue1} --position {position} --residue2 {residue2} --top-isoforms {top_isoforms}'
         
         try:
             # Run the command and capture output
