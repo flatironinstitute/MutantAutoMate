@@ -520,266 +520,266 @@ if __name__ == "__main__":
 
 from weasyprint import HTML
 
-def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path):
-    # HTML content with placeholders for variables
-    top_isoforms = ""
-    # Check if top_isoforms argument is True
-    if args.top_isoforms.lower() == 'true':
-        # Retrieve top isoforms
-        top_isoforms_list = get_top_isoforms(args.gene_name)
-        # Concatenate top isoforms into a string
-        top_isoforms = ", ".join(top_isoforms_list)
+# def generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path):
+#     # HTML content with placeholders for variables
+#     top_isoforms = ""
+#     # Check if top_isoforms argument is True
+#     if args.top_isoforms.lower() == 'true':
+#         # Retrieve top isoforms
+#         top_isoforms_list = get_top_isoforms(args.gene_name)
+#         # Concatenate top isoforms into a string
+#         top_isoforms = ", ".join(top_isoforms_list)
 
-    name = gene_name + "_" + residue1 + str(residue2)
-    pdf_filename = f"{name}.pdf"
-    html_content = f'''
-    <!DOCTYPE html>
+#     name = gene_name + "_" + residue1 + str(residue2)
+#     pdf_filename = f"{name}.pdf"
+#     html_content = f'''
+#     <!DOCTYPE html>
 
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>MutantAutoMate Report</title>
-        <link href="report.css" rel="stylesheet">
-        <style>
-            body {{
-                font-family: 'Fira Sans', sans-serif;
-                background-color: #f0f0f0;
-                color: #333;
-                padding: 10px;
-            }}
+#     <html lang="en">
+#     <head>
+#         <meta charset="UTF-8">
+#         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+#         <title>MutantAutoMate Report</title>
+#         <link href="report.css" rel="stylesheet">
+#         <style>
+#             body {{
+#                 font-family: 'Fira Sans', sans-serif;
+#                 background-color: #f0f0f0;
+#                 color: #333;
+#                 padding: 10px;
+#             }}
 
-            header {{
-                background-color: #fbc847; /* Update header background color */
-                color: #333; /* Update header text color */
-                padding: 10px;
-                text-align: center;
-            }}
+#             header {{
+#                 background-color: #fbc847; /* Update header background color */
+#                 color: #333; /* Update header text color */
+#                 padding: 10px;
+#                 text-align: center;
+#             }}
 
-            header {{
-            background-color: #fbc847;
-            color: #333;
-            padding: 10px;
-            text-align: right;
-            position: relative; /* Add relative positioning */
-        }}
+#             header {{
+#             background-color: #fbc847;
+#             color: #333;
+#             padding: 10px;
+#             text-align: right;
+#             position: relative; /* Add relative positioning */
+#         }}
 
-        .logo {{
-            position: absolute; /* Position the logo absolutely within the header */
-            top: 10px;
-            left: 10px;
-            width: 90px; /* Set the width of the logo */
-        }}
+#         .logo {{
+#             position: absolute; /* Position the logo absolutely within the header */
+#             top: 10px;
+#             left: 10px;
+#             width: 90px; /* Set the width of the logo */
+#         }}
 
-            nav ul {{
-                list-style: none;
-                margin: 0;
-                padding: 0;
-                background-color: #333;
-                overflow: hidden;
-                margin-bottom: 10px; 
-            }}
+#             nav ul {{
+#                 list-style: none;
+#                 margin: 0;
+#                 padding: 0;
+#                 background-color: #333;
+#                 overflow: hidden;
+#                 margin-bottom: 10px; 
+#             }}
 
-            nav li {{
+#             nav li {{
           
-                margin-bottom: 10px;
-            }}
+#                 margin-bottom: 10px;
+#             }}
 
-            nav li a {{
-                display: block;
-                color: white;
-                text-align: center;
-                padding: 14px 16px;
-                text-decoration: none;
-            }}
+#             nav li a {{
+#                 display: block;
+#                 color: white;
+#                 text-align: center;
+#                 padding: 14px 16px;
+#                 text-decoration: none;
+#             }}
 
-            main {{
-                padding: 20px;
-            }}
+#             main {{
+#                 padding: 20px;
+#             }}
 
-            footer {{
-                background-color: #fbc847; /* Update footer background color */
-                color: #333; /* Update footer text color */
-                padding: 10px;
-                text-align: center;
-                position: relative; 
-            }}
-            .image-container {{
-                position: relative;
-                text-align: center;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                margin: 0 20px; 
-            }}
+#             footer {{
+#                 background-color: #fbc847; /* Update footer background color */
+#                 color: #333; /* Update footer text color */
+#                 padding: 10px;
+#                 text-align: center;
+#                 position: relative; 
+#             }}
+#             .image-container {{
+#                 position: relative;
+#                 text-align: center;
+#                 display: flex;
+#                 justify-content: center;
+#                 align-items: center;
+#                 margin: 0 20px; 
+#             }}
 
-            .image-container img {{
-                width: 350px;
-                height: 350px;
-                display: block;
-                margin-bottom: 5px;
-                border: 2px solid #333; 
-            }}
-            .main-section {{
-                border: 2px solid #333; /* Adjust color and thickness as needed */
-                padding: 20px; /* Adjust padding as needed */
-                margin: 20px 0; /* Adjust margin as needed */
-            }}
-            .footer-text {{
-                font-size: 8px; /* Adjust the font size as needed */
-            }}
+#             .image-container img {{
+#                 width: 350px;
+#                 height: 350px;
+#                 display: block;
+#                 margin-bottom: 5px;
+#                 border: 2px solid #333; 
+#             }}
+#             .main-section {{
+#                 border: 2px solid #333; /* Adjust color and thickness as needed */
+#                 padding: 20px; /* Adjust padding as needed */
+#                 margin: 20px 0; /* Adjust margin as needed */
+#             }}
+#             .footer-text {{
+#                 font-size: 8px; /* Adjust the font size as needed */
+#             }}
 
-             article {{
-                background-color: #fafafa;
-                padding: 10px;
-                margin-bottom: 40px;
-             }}
-           .title {{
-                display: inline-block;
-                vertical-align: middle; /* Align vertically */
-            }}
+#              article {{
+#                 background-color: #fafafa;
+#                 padding: 10px;
+#                 margin-bottom: 40px;
+#              }}
+#            .title {{
+#                 display: inline-block;
+#                 vertical-align: middle; /* Align vertically */
+#             }}
 
-           .bullet-list {{
-                list-style-type: disc; 
-                padding: 0;
-                margin-left: 20px; 
-            }}
-            #visualization-title,
-            #interpretation-title {{
-                page-break-before: always;
-            }}
-           .description {{
-                font-size: 10px; /* Adjust the font size as needed */
-            }}
+#            .bullet-list {{
+#                 list-style-type: disc; 
+#                 padding: 0;
+#                 margin-left: 20px; 
+#             }}
+#             #visualization-title,
+#             #interpretation-title {{
+#                 page-break-before: always;
+#             }}
+#            .description {{
+#                 font-size: 10px; /* Adjust the font size as needed */
+#             }}
 
-            h2 {{
-                margin-top: 30px; /* Increase margin for better spacing */
-            }}
+#             h2 {{
+#                 margin-top: 30px; /* Increase margin for better spacing */
+#             }}
 
-            h3 {{
-                margin-top: 20px; /* Increase margin for better spacing */
-            }}
+#             h3 {{
+#                 margin-top: 20px; /* Increase margin for better spacing */
+#             }}
 
-            hr {{
-                border: none;
-                border-top: 2px solid #333; /* Adjust color and thickness as needed */
-                margin: 20px 0; /* Adjust margin as needed */
-            }}
+#             hr {{
+#                 border: none;
+#                 border-top: 2px solid #333; /* Adjust color and thickness as needed */
+#                 margin: 20px 0; /* Adjust margin as needed */
+#             }}
 
-        </style>
-    </head>
-<body>
+#         </style>
+#     </head>
+# <body>
     
-    <header>
-         <h1 class="title">MutantAutoMate Report</h1>
-         <p class="description"><i>MutantAutoMate is a tool that analyzes mutations in genes.</i></p>
-        <img src="{image_path}" alt="Logo" class="logo">
-    </header>
+#     <header>
+#          <h1 class="title">MutantAutoMate Report</h1>
+#          <p class="description"><i>MutantAutoMate is a tool that analyzes mutations in genes.</i></p>
+#         <img src="{image_path}" alt="Logo" class="logo">
+#     </header>
     
 
-    <hr>
-    <main class="main-section">
-        <ul style="font-size: small;">
-            <li>Report for <b>{gene_name} which goes from {amino_acids.get(residue1)} at position {position} to {amino_acids.get(residue2)}</b>.</li>
-            <li>The PDB ID for the selected isoform is <b>{pdb_ids[0]}</b>.</li>
-            <li> The Uniprot ID for the selected isoform is <b>{matching_isoforms[0]}</b>.</li>
-            <!-- Include top isoforms list if it exists -->
-            {"<li>Top 5 isoforms of gene UniProt ID: " + top_isoforms + "</li>" if top_isoforms else ""}
+#     <hr>
+#     <main class="main-section">
+#         <ul style="font-size: small;">
+#             <li>Report for <b>{gene_name} which goes from {amino_acids.get(residue1)} at position {position} to {amino_acids.get(residue2)}</b>.</li>
+#             <li>The PDB ID for the selected isoform is <b>{pdb_ids[0]}</b>.</li>
+#             <li> The Uniprot ID for the selected isoform is <b>{matching_isoforms[0]}</b>.</li>
+#             <!-- Include top isoforms list if it exists -->
+#             {"<li>Top 5 isoforms of gene UniProt ID: " + top_isoforms + "</li>" if top_isoforms else ""}
 
-        </ul>
-        <hr>
-          <ul style="font-size: small;">
+#         </ul>
+#         <hr>
+#           <ul style="font-size: small;">
                 
-                <li>{grantham_output_extra}</li>
-                <li>{output_message}</li>
-                <li>{structured_or_not}.</li>
-        </ul>
-            </ul>
+#                 <li>{grantham_output_extra}</li>
+#                 <li>{output_message}</li>
+#                 <li>{structured_or_not}.</li>
+#         </ul>
+#             </ul>
    
-             <!-- Add your images here -->
-            <div style="text-align: center;">
-                <div style="display: inline-block; text-align: center;">
-                    <img src="{normal_image_path}" alt="Image A" style="width: 300px; height: 300px; border: 1px solid black; margin-bottom: 10px; display: block;">
-                    <p><i>Residue highlighted in red</i></p>
-                </div>
-                <div style="display: inline-block; text-align: center;">
-                    <img src="{zoomed_image_path}" alt="Image B" style="width: 100px; height: 100px; border: 1px solid black; display: block;">
-                    <p><i>Zoomed in residue views</i></p>
-                </div>
-                <br>
+#              <!-- Add your images here -->
+#             <div style="text-align: center;">
+#                 <div style="display: inline-block; text-align: center;">
+#                     <img src="{normal_image_path}" alt="Image A" style="width: 300px; height: 300px; border: 1px solid black; margin-bottom: 10px; display: block;">
+#                     <p><i>Residue highlighted in red</i></p>
+#                 </div>
+#                 <div style="display: inline-block; text-align: center;">
+#                     <img src="{zoomed_image_path}" alt="Image B" style="width: 100px; height: 100px; border: 1px solid black; display: block;">
+#                     <p><i>Zoomed in residue views</i></p>
+#                 </div>
+#                 <br>
                 
-            </div>
+#             </div>
         
       
-    </main>
+#     </main>
 
-    <footer>
+#     <footer>
           
-        <p><i class="footer-text">&copy; 2024 MutantAutoMate. All rights reserved.</i></p>
-        <p><i class="footer-text">References: Grantham Score: R. Grantham ,Amino Acid Difference Formula to Help Explain Protein Evolution.Science185,862-864(1974).</i></p>
-        <p><i class="footer-text">This report has been generated with basic settings. More advanced options for ML analysis are available.</i></p>
-    </footer>
-</body>
-</html>
-    '''
+#         <p><i class="footer-text">&copy; 2024 MutantAutoMate. All rights reserved.</i></p>
+#         <p><i class="footer-text">References: Grantham Score: R. Grantham ,Amino Acid Difference Formula to Help Explain Protein Evolution.Science185,862-864(1974).</i></p>
+#         <p><i class="footer-text">This report has been generated with basic settings. More advanced options for ML analysis are available.</i></p>
+#     </footer>
+# </body>
+# </html>
+#     '''
 
-    # Generate PDF using WeasyPrint
-    HTML(string=html_content, base_url=requests.compat.urljoin('file:', os.getcwd())).write_pdf(pdf_filename, presentational_hints=True)
+#     # Generate PDF using WeasyPrint
+#     HTML(string=html_content, base_url=requests.compat.urljoin('file:', os.getcwd())).write_pdf(pdf_filename, presentational_hints=True)
 
-    print(f"Your PDF report for this mutant has been created: {pdf_filename}")
+#     print(f"Your PDF report for this mutant has been created: {pdf_filename}")
 
-    # Return the generated PDF filename
-    return pdf_filename
+#     # Return the generated PDF filename
+#     return pdf_filename
 
 
-# Define a dictionary mapping single-letter amino acid codes to three-letter codes
-amino_acid_mapping = {
-    'A': 'ALA',
-    'R': 'ARG',
-    'N': 'ASN',
-    'D': 'ASP',
-    'C': 'CYS',
-    'Q': 'GLN',
-    'E': 'GLU',
-    'G': 'GLY',
-    'H': 'HIS',
-    'I': 'ILE',
-    'L': 'LEU',
-    'K': 'LYS',
-    'M': 'MET',
-    'F': 'PHE',
-    'P': 'PRO',
-    'S': 'SER',
-    'T': 'THR',
-    'W': 'TRP',
-    'Y': 'TYR',
-    'V': 'VAL',
-}
+# # Define a dictionary mapping single-letter amino acid codes to three-letter codes
+# amino_acid_mapping = {
+#     'A': 'ALA',
+#     'R': 'ARG',
+#     'N': 'ASN',
+#     'D': 'ASP',
+#     'C': 'CYS',
+#     'Q': 'GLN',
+#     'E': 'GLU',
+#     'G': 'GLY',
+#     'H': 'HIS',
+#     'I': 'ILE',
+#     'L': 'LEU',
+#     'K': 'LYS',
+#     'M': 'MET',
+#     'F': 'PHE',
+#     'P': 'PRO',
+#     'S': 'SER',
+#     'T': 'THR',
+#     'W': 'TRP',
+#     'Y': 'TYR',
+#     'V': 'VAL',
+# }
 
-# Get the directory of the current file
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# # Get the directory of the current file
+# current_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Set the image filename
-image_filename = "logo.png"
-image_aA_path = "FI.png"
-image_bB_path = "CCB.png"
-zoomed_image_path = "zoom.png"  
-bg_image_pathh = "bg_image.png"
+# # Set the image filename
+# image_filename = "logo.png"
+# image_aA_path = "FI.png"
+# image_bB_path = "CCB.png"
+# zoomed_image_path = "zoom.png"  
+# bg_image_pathh = "bg_image.png"
 
-# Get the residue code based on the single-letter code
+# # Get the residue code based on the single-letter code
 
-residue_code = amino_acid_mapping.get(residue1, residue1)
+# residue_code = amino_acid_mapping.get(residue1, residue1)
 
-# Run the bash script using subprocess with arguments
-output = subprocess.run(["bash", bash_script, file1, residue1, residue2], capture_output=True, text=True)
-print(output)
-# Join the directory path with the image filename
-image_path = os.path.join(current_dir, image_filename)
-image_a_path = os.path.join(current_dir, image_aA_path)
-image_b_path = os.path.join(current_dir, image_bB_path)
-normal_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}.png")
-zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}-zoom.png")
-bg_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-bg_image.png")
-print(image_path)
-# Call the function to generate the PDF with all the information
-generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path)
+# # Run the bash script using subprocess with arguments
+# output = subprocess.run(["bash", bash_script, file1, residue1, residue2], capture_output=True, text=True)
+# print(output)
+# # Join the directory path with the image filename
+# image_path = os.path.join(current_dir, image_filename)
+# image_a_path = os.path.join(current_dir, image_aA_path)
+# image_b_path = os.path.join(current_dir, image_bB_path)
+# normal_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}.png")
+# zoomed_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-{residue_code}-{position}-zoom.png")
+# bg_image_path = os.path.join(current_dir, f"{pdb_ids[0]}-bg_image.png")
+# print(image_path)
+# # Call the function to generate the PDF with all the information
+# generate_pdf(image_path, normal_image_path, zoomed_image_path, image_a_path, image_b_path, bg_image_path)
