@@ -18,15 +18,16 @@ def index():
         
         try:
             # Run the command and capture output
-            result = subprocess.run(command, shell=True, capture_output=True, text=True, stderr=subprocess.STDOUT)
-            
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
+
             # Check for return code to handle errors
-            if result.returncode != 0:
-                error_message = f"Error executing command: {result.stdout}"
+            if process.returncode != 0:
+                error_message = f"Error executing command: {stderr}"
                 return render_template('error.html', error=error_message)
             
             # Assuming success, render the result template
-            return render_template('result.html', response=result.stdout)
+            return render_template('result.html', response=stdout)
         
         except subprocess.CalledProcessError as e:
             # Handle subprocess error (command execution error)
