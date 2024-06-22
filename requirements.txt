@@ -1,4 +1,5 @@
 numpy
+pypdb
 argparse
 jinja2
 Pillow
