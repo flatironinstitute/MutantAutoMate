@@ -1,5 +1,6 @@
 numpy
 pypdb
+bioservices
 argparse
 jinja2
 Pillow
