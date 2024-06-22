@@ -1,21 +1,7 @@
 import subprocess
-import sys
-import os
 from flask import Flask, request, render_template
 
 app = Flask(__name__)
-
-# def create_pml_script(file_path, residue_name, position):
-#     # Your existing create_pml_script function code here
-#     pass
-
-# def run_pymol_script(script_content):
-#     # Your existing run_pymol_script function code here
-#     pass
-
-def generate_snapshot(pdb_file_path, residue_name, position):
-    script_content = create_pml_script(pdb_file_path, residue_name, position)
-    run_pymol_script(script_content)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -32,16 +18,16 @@ def index():
         
         try:
             # Run the command and capture output
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
-            print(result)
-            # Assuming the PDB file path is passed as an argument to app.py
-            pdb_file_path = sys.argv[1]
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, stderr=subprocess.STDOUT)
             
-            # Generate snapshot using the PDB file path
-            generate_snapshot(pdb_file_path, residue1, position)
+            # Check for return code to handle errors
+            if result.returncode != 0:
+                error_message = f"Error executing command: {result.stdout}"
+                return render_template('error.html', error=error_message)
             
-            # Render the result template with response text
+            # Assuming success, render the result template
             return render_template('result.html', response=result.stdout)
+        
         except subprocess.CalledProcessError as e:
             # Handle subprocess error (command execution error)
             error_message = f"Error executing command: {e}"
@@ -56,8 +42,4 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python app.py /path/to/pdb/file.pdb")
-        sys.exit(1)
-    
     app.run(debug=True)
