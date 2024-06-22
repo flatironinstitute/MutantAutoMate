@@ -5,13 +5,13 @@ from flask import Flask, request, render_template
 
 app = Flask(__name__)
 
-def create_pml_script(file_path, residue_name, position):
-    # Your existing create_pml_script function code here
-    pass
+# def create_pml_script(file_path, residue_name, position):
+#     # Your existing create_pml_script function code here
+#     pass
 
-def run_pymol_script(script_content):
-    # Your existing run_pymol_script function code here
-    pass
+# def run_pymol_script(script_content):
+#     # Your existing run_pymol_script function code here
+#     pass
 
 def generate_snapshot(pdb_file_path, residue_name, position):
     script_content = create_pml_script(pdb_file_path, residue_name, position)
