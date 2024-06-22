@@ -10,6 +10,7 @@ name = "mutantautomate"
 version = "0.0.1"
 dependencies = [
     "numpy",
+    "pypdb",
     "argparse",
     "jinja2",
     "PIL",
