@@ -1,6 +1,7 @@
 import subprocess
 from flask import Flask, request, render_template
 from celery import Celery
+from kombu.transport.redis import redis
 
 # Initialize Flask app
 app = Flask(__name__)
