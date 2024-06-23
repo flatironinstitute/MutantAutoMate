@@ -2,6 +2,7 @@ numpy
 celery
 pypdb
 bioservices
+redis
 argparse
 jinja2
 Pillow
