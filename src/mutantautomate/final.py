@@ -1,69 +1,41 @@
-# Import required libraries
-import reportlab
 import argparse
-from reportlab.lib.pagesizes import letter
-from jinja2 import Environment, FileSystemLoader
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Image, Spacer, Table, Paragraph, PageTemplate
-from PIL import Image as PILImage, ImageFilter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Frame
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Spacer
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Image, Paragraph, HRFlowable, ListFlowable, ListItem, Spacer, Table
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import letter
-from PIL import Image as PILImage
 import tempfile
-from reportlab.lib import colors
-from io import BytesIO
-from reportlab.lib.utils import ImageReader
-from reportlab.platypus.flowables import HRFlowable
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
-from PIL import Image as PILImage
-from reportlab.lib import utils
-from reportlab.platypus.frames import Frame
-#remove redundant ones from above^^^ clean code
-import requests
-from bs4 import BeautifulSoup
-import urllib.parse
-import json
-from requests.adapters import HTTPAdapter, Retry
-import re
-import ast
-from io import StringIO
-from Bio import SeqIO
-from pypdb import *
-from reportlab.platypus import HRFlowable
-from bioservices import *
-import numpy as np
-import os
-from Bio import BiopythonDeprecationWarning
-import sys
-import urllib
-import urllib.request
+from io import BytesIO, StringIO
 from pathlib import Path
-from fpdf import FPDF
-from matplotlib.backends.backend_pdf import PdfPages
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import mdtraj as md
-from matplotlib import pyplot as plt
-import pandas as pd
-import os
-import mdtraj as md
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib import utils
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, ListFlowable, ListItem, Spacer, PageTemplate
+import json
+import re
+import urllib
+import urllib.parse
+import urllib.request
+import sys
 import subprocess
-import warnings
+import os
 
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import mdtraj as md
+from fpdf import FPDF
+from Bio import SeqIO, BiopythonDeprecationWarning
 from Bio.Align import PairwiseAligner
+from pypdb import *
+from bioservices import *
+
+import requests
+from requests.adapters import HTTPAdapter, Retry
+from bs4 import BeautifulSoup
+import ast
+
+from PIL import Image as PILImage, ImageFilter
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors, utils
+from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate, Image, Spacer, Table, Paragraph, PageTemplate, HRFlowable, ListFlowable, ListItem, Frame
+)
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -493,9 +465,6 @@ if __name__ == "__main__":
         else:
             grantham_output_extra = "Not a potentially high score."
 
-
-import os
-import subprocess
 
 # Define the path to your downloaded PDB file
 pdb_file = pdbpath  # Assuming `pdbpath` is defined earlier in your script
