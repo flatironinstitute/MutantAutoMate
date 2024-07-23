@@ -1,19 +1,19 @@
 FROM python:3.9
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
 # Copy Python scripts and bash script to the container
-COPY . /app
+COPY . /usr/src/app
 
 # Install Python dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Make the bash script executable (if needed)
-RUN chmod +x snapshot.sh
+# # Make the bash script executable (if needed)
+# RUN chmod +x snapshot.sh
 
-# Expose port if your Python application listens on a specific port
-EXPOSE 8000
+# # Expose port if your Python application listens on a specific port
+# EXPOSE 5000
 
-# Define the command to run your Python application
-CMD ["python", "app.py"]
+# # Define the command to run your Python application
+# CMD ["python", "app.py"]
 

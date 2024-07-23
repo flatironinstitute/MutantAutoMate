@@ -1,0 +1,14 @@
+services:
+  python:
+    build: .
+    working_dir: /usr/src/app
+    volumes:
+      - .:/usr/src/app
+      - python_packages:/usr/local/lib/python3.9/site-packages
+    environment:
+      FLASK_ENV: development
+    ports:
+      - "5000:5000"
+    command: flask --app src/mutantautomate/app2 run --host=0.0.0.0 --debug
+volumes:
+  python_packages:

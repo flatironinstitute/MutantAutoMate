@@ -40,3 +40,11 @@ Q62765-4
 Q62889-2
 Q62889-4
 Q62889-3
+
+
+## Examples
+
+```bash
+python ./final.py --gene-name NLGN1 --residue1 D --position 140 --residue2 Y --top-isoforms True
+```
+
