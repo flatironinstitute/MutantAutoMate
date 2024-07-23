@@ -1,6 +1,23 @@
-from flask import Flask, render_template
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    Response,
+    stream_with_context,
+)
+import requests
+from requests.adapters import HTTPAdapter, Retry
+import json
+import time
 
 app = Flask(__name__)
+
+# Define retry settings for HTTP requests
+# Create a session with retry settings
+retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])
+session = requests.Session()
+session.mount("https://", HTTPAdapter(max_retries=retries))
 
 
 @app.route("/")
@@ -8,9 +25,54 @@ def index():
     return render_template("index2.html")
 
 
+@app.route("/stream-test")
+def stream_test():
+    def generate():
+        page = 1
+        while True:
+            results = get_paginated_results(page)
+            if not results:
+                print("No more results")
+                break
+            yield f"data: {json.dumps(results)}\n\n"
+            page += 1
+            time.sleep(1)  # Simulate delay between pages
+
+    return Response(stream_with_context(generate()), content_type="text/event-stream")
+
+
+def get_paginated_results(page):
+    # Simulate a database query that returns paginated results
+    # This is just an example; replace with your actual data fetching logic
+    data = [
+        {"id": 1, "name": "Item 1"},
+        {"id": 2, "name": "Item 2"},
+        {"id": 3, "name": "Item 3"},
+        # Add more items as needed
+    ]
+    page_size = 1
+    start = (page - 1) * page_size
+    end = start + page_size
+    return data[start:end]
+
+
+@app.route("/search-uniprot", methods=["GET"])
+def search_uniprot_route():
+    gene_name = request.args.get("gene_name")
+    result = search_uniprot(gene_name)
+    return jsonify(result)
+
+
+def search_uniprot(gene_name):
+    url = f"https://rest.uniprot.org/uniprotkb/search?query=reviewed:true+AND+{gene_name}&includeIsoform=true&format=list&(taxonomy_id:9606)"
+    response = session.get(url)
+    response.raise_for_status()
+    isoforms = response.text.strip().split("\n")
+    return {"isoforms": isoforms}
+
+
 @app.route("/grantham", methods=["GET"])
 def grantham():
-    from flask import request, jsonify
     import os
     import ast
 
@@ -52,8 +114,6 @@ def grantham():
     with open(grantham_output_path, "r") as f:
         grantham_dict = ast.literal_eval(f.read())
 
-    print("grantham dict", grantham_dict)
-
     # Calculate the Grantham score
     grantham_score = None
     grantham_key = (amino_acid_1, amino_acid_2)
@@ -71,9 +131,6 @@ def grantham():
         grantham_output = f"The Grantham score between {amino_acids.get(amino_acid_1)} and {amino_acids.get(amino_acid_2)} is {grantham_score}"
 
         if grantham_score > threshold:
-            print(
-                "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-            )
             grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
         else:
             grantham_output_extra = "Not a potentially high score."
@@ -89,28 +146,3 @@ def grantham():
             "error": error,
         }
     )
-
-    # threshold = 100  # Define the threshold value for high Grantham score
-
-    # if score is not None:
-    #     print(
-    #         f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}"
-    #     )
-    #     grantham_score = score
-    #     grantham_output = f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}"
-
-    #     if score > threshold:
-    #         print(
-    #             "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-    #         )
-    #         grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-    #     else:
-    #         grantham_output_extra = "Not a potentially high score."
-    # # Return grantham_score, grantham_output, grantham_output_extra as JSON
-    # return jsonify(
-    #     {
-    #         "grantham_score": grantham_score,
-    #         "grantham_output": grantham_output,
-    #         "grantham_output_extra": grantham_output_extra,
-    #     }
-    # )
