@@ -1,3 +1,6 @@
+import json
+import re
+import time
 from flask import (
     Flask,
     render_template,
@@ -8,8 +11,7 @@ from flask import (
 )
 import requests
 from requests.adapters import HTTPAdapter, Retry
-import json
-import time
+
 
 app = Flask(__name__)
 
@@ -68,7 +70,14 @@ def search_uniprot(gene_name):
     response = session.get(url)
     response.raise_for_status()
     isoforms = response.text.strip().split("\n")
-    return {"isoforms": isoforms}
+    next_link = None
+    if "Link" in response.headers:
+        # Define regular expression pattern for retrieving next link
+        re_next_link = re.compile(r'<(.+)>; rel="next"')
+        match = re_next_link.match(response.headers["Link"])
+        if match:
+            next_link = match.group(1)
+    return {"isoforms": isoforms, "next_link": next_link}
 
 
 @app.route("/grantham", methods=["GET"])

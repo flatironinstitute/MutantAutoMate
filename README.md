@@ -45,6 +45,8 @@ Q62889-3
 ## Examples
 
 ```bash
+docker compose run python bash
+cd src/mutantautomate
 python ./final.py --gene-name NLGN1 --residue1 D --position 140 --residue2 Y --top-isoforms True
 ```
 
