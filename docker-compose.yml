@@ -1,5 +1,5 @@
 services:
-  python:
+  flask:
     build: .
     working_dir: /usr/src/app
     volumes:
@@ -10,5 +10,12 @@ services:
     ports:
       - "5000:5000"
     command: flask --app src/mutantautomate/app2 run --host=0.0.0.0 --debug
+  python:
+    build: .
+    tty: true
+    stdin_open: true
+    volumes:
+      - .:/app
+    working_dir: /app/src/mutantautomate
 volumes:
   python_packages:
