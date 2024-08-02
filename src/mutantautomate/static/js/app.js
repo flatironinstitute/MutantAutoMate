@@ -23,6 +23,8 @@ export function App() {
     <div
       className="mt-10 max-w-[500px] ms-auto me-auto bg-white rounded rounded-2xl p-10"
     >
+      <${Main} />
+      <${Separator} />
       <${SearchTest} />
       <${Separator} />
       <${StreamTest} />
@@ -32,6 +34,83 @@ export function App() {
       <${PDBViewer} />
     </div>
   `;
+}
+
+function Main() {
+  const [geneName, setGeneName] = useState("NLGN1");
+  const [residue1, setResidue1] = useState("D");
+  const [position, setPosition] = useState("1");
+  const [residue2, setResidue2] = useState("Y");
+  const [topIsoforms, setTopIsoforms] = useState(false);
+
+  return html` <h2 className=${classes.h2}>Main</h2>
+    <${Spacer} />
+    <label>
+      <div>Gene Name:</div>
+      <input
+        type="text"
+        className=${classes.input}
+        value=${geneName}
+        onInput=${(e) => setGeneName(e.target.value)}
+      />
+    </label>
+    <label>
+      <div>Residue 1:</div>
+      <input
+        type="text"
+        className=${classes.input}
+        value=${residue1}
+        onInput=${(e) => setResidue1(e.target.value)}
+      />
+    </label>
+    <label>
+      <div>Position:</div>
+      <input
+        type="text"
+        className=${classes.input}
+        value=${position}
+        onInput=${(e) => setPosition(e.target.value)}
+      />
+    </label>
+    <label>
+      <div>Resiude2:</div>
+      <input
+        type="text"
+        className=${classes.input}
+        value=${residue2}
+        onInput=${(e) => setResidue2(e.target.value)}
+      />
+    </label>
+    <label>
+      <div>Top Isoforms:</div>
+      <input
+        type="checkbox"
+        className=${classes.input}
+        value=${topIsoforms}
+        onInput=${(e) => setTopIsoforms(e.target.value)}
+      />
+    </label>
+
+    <${Spacer} />
+    <button
+      className=${classes.button}
+      onClick=${() => {
+        const url = new URL("/process", window.location.origin);
+        url.searchParams.append("gene_name", "NLGN1");
+        const eventSource = new EventSource(url);
+
+        eventSource.onmessage = (event) => {
+          console.log(event.data);
+        };
+
+        eventSource.onerror = (error) => {
+          console.error("EventSource failed:", error);
+          eventSource.close();
+        };
+      }}
+    >
+      Search
+    </button>`;
 }
 
 function SearchTest() {
@@ -72,8 +151,6 @@ function SearchTest() {
     </button>
     <${Spacer} />
     <textarea
-      id="score"
-      name="score"
       readonly
       rows=${10}
       className="outline outline-black w-full font-mono text-xs"
@@ -85,25 +162,57 @@ function SearchTest() {
 
 function StreamTest() {
   const [output, setOutput] = useState("this will be output");
+  const [isoforms, setIsoforms] = useState([]);
   return html`
     <h2 className=${classes.h2}>Stream Test</h2>
     <${Spacer} />
     <button
       className=${classes.button}
       onClick=${() => {
-        const eventSource = new EventSource("/stream-test");
+        const url = new URL("/search-uniprot-stream", window.location.origin);
+        url.searchParams.append("gene_name", "NLGN1");
+        const eventSource = new EventSource(url);
+
+        eventSource.onmessage = (event) => {
+          setOutput((prevOutput) => prevOutput + "\n" + event.data);
+          try {
+            const parsed = JSON.parse(event.data);
+            console.log(parsed);
+            if (parsed.isoforms) {
+              setIsoforms((prevIsoforms) => [
+                ...prevIsoforms,
+                ...parsed.isoforms,
+              ]);
+            }
+            if (parsed.message && parsed.message === "end of stream") {
+              eventSource.close();
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error("EventSource failed:", error);
+          eventSource.close();
+        };
       }}
     >
       Start Stream Test
     </button>
     <${Spacer} />
     <textarea
-      id="score"
-      name="score"
       readonly
       rows=${10}
       className="outline outline-black w-full font-mono text-xs"
       children=${output}
+    >
+    </textarea>
+    <textarea
+      readonly
+      rows=${10}
+      className="outline outline-black w-full font-mono text-xs"
+      children=${isoforms.join("\n")}
     >
     </textarea>
   `;
@@ -164,8 +273,6 @@ function GranthamScore() {
     <${Spacer} />
     <div>
       <textarea
-        id="score"
-        name="score"
         readonly
         rows=${10}
         className="outline outline-black w-full font-mono text-xs"
