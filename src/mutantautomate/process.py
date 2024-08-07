@@ -1,3 +1,4 @@
+import os
 import re
 import ast
 import requests
@@ -10,6 +11,23 @@ from Bio.Align import PairwiseAligner
 retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])
 session = requests.Session()
 session.mount("https://", HTTPAdapter(max_retries=retries))
+
+
+def calculate_grantham_score(residue1, residue2):
+    # Get the path of the current file's directory
+    current_directory = os.path.dirname(__file__)
+    # Get the path of "grantham_output.txt" in the current directory
+    grantham_output_path = os.path.join(current_directory, "grantham_output.txt")
+    # Load the Grantham dictionary from the output file
+    with open(grantham_output_path, "r") as f:
+        grantham_dict = ast.literal_eval(f.read())
+    key = (residue1, residue2)
+    if key in grantham_dict:
+        return grantham_dict[key]
+    else:
+        print(f"Grantham score not available for ({aa1}, {aa2})")
+        return None
+
 
 # Define the dictionary of amino acid names
 amino_acids = {
@@ -36,38 +54,86 @@ amino_acids = {
 }
 
 
-def calculate_grantham_score(residue1, residue2):
-    # Load the Grantham dictionary from the output file
-    output_file = "grantham_output.txt"
-    with open(output_file, "r") as f:
-        grantham_dict = ast.literal_eval(f.read())
-    key = (residue1, residue2)
-    if key in grantham_dict:
-        return grantham_dict[key]
-    else:
-        print(f"Grantham score not available for ({aa1}, {aa2})")
-        return None
+def get_grantham_score_with_statement(residue1, residue2):
 
+    # Calculate the Grantham score
+    grantham_score = calculate_grantham_score(residue1, residue2)
 
-def construct_uniprot_search_url(gene_name):
-    # base_url = "https://rest.uniprot.org/uniprotkb/search"
-    # params = {
-    #     "query": f"reviewed:true AND {gene_name}",
-    #     "includeIsoform": "true",
-    #     "format": "list",
-    #     "(taxonomy_id:9606)": "",
-    # }
-    base_url = "https://rest.uniprot.org/uniprotkb/search"
-    params = {
-        "query": f"reviewed:true AND taxonomy_id:9606 AND {gene_name}",
-        "includeIsoform": "true",
-        "format": "list",
+    threshold = 100  # Define the threshold value for high Grantham score
+
+    grantham_output = None
+    grantham_output_extra = None
+
+    if grantham_score is not None:
+        grantham_output = f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {grantham_score}."
+
+        if grantham_score > threshold:
+            grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
+        else:
+            grantham_output_extra = "Not a potentially high score."
+
+    # Return the values as JSON
+    return {
+        "grantham_score": grantham_score,
+        "grantham_statement": grantham_output + " " + grantham_output_extra,
     }
-    full_url = requests.Request("GET", base_url, params=params).prepare().url
-    return full_url
+
+
+# Function to determine the charge change between two residues
+def get_charge_statement(residue1, residue2, position):
+    aa_charge_dict = {
+        "A": "non-polar",
+        "C": "polar",
+        "D": "negative",
+        "E": "negative",
+        "F": "bulky",  # "non-polar",
+        "G": "non-polar",
+        "H": "positive",
+        "I": "non-polar",
+        "K": "positive",
+        "L": "non-polar",
+        "M": "non-polar",
+        "N": "polar",
+        "P": "non-polar",
+        "Q": "polar",
+        "R": "positive",
+        "S": "polar",
+        "T": "polar",
+        "V": "non-polar",
+        "W": "bulky",  # "non-polar",
+        "Y": "bulky",  # "polar"
+    }
+
+    aa_charge_categories = {
+        "positive-to-negative": ["K", "R", "H"],
+        "positive-to-hydrophobic": ["K", "R", "H"],
+        "negative-to-positive": ["D", "E"],
+        "negative-to-hydrophobic": ["D", "E"],
+        "hydrophobic-to-positive": ["A", "F", "G", "I", "L", "M", "P", "V", "W", "Y"],
+        "hydrophobic-to-negative": ["A", "F", "G", "I", "L", "M", "P", "V", "W", "Y"],
+        "hydrophobic-to-polar": ["A", "F", "G", "I", "L", "M", "P", "V", "W", "Y"],
+        "polar-to-hydrophobic": ["C", "N", "Q", "S", "T", "Y"],
+        "polar-to-positive": ["C", "N", "Q", "S", "T", "Y"],
+        "polar-to-negative": ["C", "N", "Q", "S", "T", "Y"],
+        "non-polar-to-polar": ["A", "F", "G", "I", "L", "M", "P", "V", "W", "Y"],
+    }
+
+    residue1_charge = aa_charge_dict[residue1]
+    residue2_charge = aa_charge_dict[residue2]
+
+    charge_statement = (
+        f"This is a mutation "
+        f"from {amino_acids.get(residue1)} "
+        f"at position {position} "
+        f"to {amino_acids.get(residue2)}. "
+        f"This is a mutation from a {residue1_charge} charged amino acid "
+        f"to a {residue2_charge} amino acid."
+    )
+    return charge_statement
 
 
 def search_uniprot(url):
+    print(f"Searching Uniprot: {url}")
     response = session.get(url)
     response.raise_for_status()
     isoforms = response.text.strip().split("\n")
@@ -85,7 +151,7 @@ def search_uniprot(url):
 
 
 def search_uniprot_generator(gene_name):
-    url = construct_uniprot_search_url(gene_name)
+    url = f"https://rest.uniprot.org/uniprotkb/search?query=(reviewed:true)+AND+(taxonomy_id:9606)+AND+{gene_name}&includeIsoform=true&format=list"
     while url:
         result = search_uniprot(url)
         yield result
@@ -104,25 +170,6 @@ def get_sequences_generator(isoforms):
     for isoform in isoforms:
         sequence = get_sequence(isoform)
         yield {"isoform": isoform, "sequence": sequence}
-
-
-# # Function to search for a specific residue at a position in isoforms of a gene
-# def search_residue(all_sequences, residue, position, gene_name):
-#     matching_isoforms = []
-#     for isoform, sequence in all_sequences:
-#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
-#             matching_isoforms.append(isoform)
-#     return matching_isoforms
-
-
-# Function to search for a specific residue at a position in isoforms of a gene
-# def search_residue(all_isoforms, residue, position, gene_name):
-#     matching_isoforms = {}
-#     for isoform, data in all_isoforms.items():
-#         sequence = data["sequence"]
-#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
-#             matching_isoforms[isoform] = data
-#     return matching_isoforms
 
 
 def search_residue(sequence, residue, position):
@@ -158,38 +205,31 @@ def calculate_similarity(sequence1, sequence2):
     best_alignment = alignments[0]
     alignment_score = best_alignment.score
     return alignment_score
-    # alignment_length = len(best_alignment)
-    # print(f"alignment_length: {alignment_length}")
-    # print(f"sequence1 length: {len(sequence1)}")
-    # print(f"sequence2 length: {len(sequence2)}")
-    # similarity = alignment_score / alignment_length * 100
-    # return similarity
 
 
-def process(gene_name, residue1, position, residue2, top_isoforms):
+def process(gene_name, residue1, position, residue2):
     print("Gene Name:", gene_name)
     print("Residue 1:", residue1)
     print("Position:", position)
     print("Residue 2:", residue2)
-    print("Top Isoforms:", top_isoforms)
 
     # Grantham Score
-    grantham_score = calculate_grantham_score(residue1, residue2)
-    grantham_threshold = 100
+    grantham_score_with_statement = get_grantham_score_with_statement(
+        residue1, residue2
+    )
     yield {
-        "message": f"Grantham score: {grantham_score}",
-        "grantham_score": grantham_score,
+        "type": "grantham_score",
+        "message": grantham_score_with_statement["grantham_statement"],
+        **grantham_score_with_statement,
     }
-    if grantham_score is not None:
-        yield {
-            "message": f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {grantham_score}"
-        }
-        if grantham_score > grantham_threshold:
-            yield {
-                "message": f"This is a high Grantham score, indicating a potentially significant evolutionary distance."
-            }
-        else:
-            yield {"message": f"This is not a high Grantham score."}
+
+    # Charge Statement
+    charge_statement = get_charge_statement(residue1, residue2, position)
+    yield {
+        "type": "charge_statement",
+        "charge_statement": charge_statement,
+        "message": charge_statement,
+    }
 
     # Collect all isoforms
     all_isoforms = {}
@@ -201,6 +241,7 @@ def process(gene_name, residue1, position, residue2, top_isoforms):
                 "gene_name": None,
             }
         yield {"message": f"got {len(all_isoforms)} isoforms"}
+    yield {"all_isoforms": list(all_isoforms.keys())}
 
     # Collect all sequences
     sequences_found = 0
@@ -209,7 +250,11 @@ def process(gene_name, residue1, position, residue2, top_isoforms):
         sequence = result["sequence"]
         all_isoforms[isoform]["sequence"] = sequence
         sequences_found += 1
-        yield {"message": f"got sequence for {isoform}"}
+        yield {
+            "message": f"got sequence for {isoform}",
+            "type": "sequence",
+            "isoform": isoform,
+        }
         yield {"message": f"got {sequences_found} / {len(all_isoforms)} sequences"}
 
     # Find isoforms with residue1 at position
@@ -221,7 +266,7 @@ def process(gene_name, residue1, position, residue2, top_isoforms):
             yield {"message": f"found {isoform} with {residue1} at position {position}"}
     yield {
         "message": f"found {len(matching_isoforms)} matching isoforms",
-        "matching_isoforms": matching_isoforms.keys(),
+        "matching_isoforms": list(matching_isoforms.keys()),
     }
 
     # Get gene names for matching isoforms
@@ -239,7 +284,7 @@ def process(gene_name, residue1, position, residue2, top_isoforms):
             filtered_isoforms[isoform] = matching_isoforms[isoform]
     yield {
         "message": f"filtered isoforms: {filtered_isoforms.keys()}",
-        "filtered_isoforms": filtered_isoforms.keys(),
+        "filtered_isoforms": list(filtered_isoforms.keys()),
     }
 
     # Pairwise similary scores
@@ -253,18 +298,39 @@ def process(gene_name, residue1, position, residue2, top_isoforms):
             yield {
                 "message": f"similarity for {isoform1} and {isoform2}: {alignment_score}"
             }
+    # Convert the dictionary with tuple keys to a list of dictionaries that is JSON serializable
+    pairwise_scores_list = []
+    for (isoform1, isoform2), score in pairwise_scores.items():
+        pairwise_scores_list.append(
+            {"isoform1": isoform1, "isoform2": isoform2, "score": score}
+        )
     yield {
-        "pairwise_scores": pairwise_scores,
+        "pairwise_scores": pairwise_scores_list,
     }
 
+    # PDB IDs
+    pdb_ids = {}
+    for isoform in filtered_isoforms:
+        pdb_ids[isoform] = []
+        json_url = f"https://www.uniprot.org/uniprot/{isoform}.json"
+        response = session.get(json_url)
+        response.raise_for_status()
+        data = response.json()
+        references = data["uniProtKBCrossReferences"]
+        for reference in references:
+            if reference["database"] == "PDB":
+                pdb_id = reference["id"]
+                pdb_ids[isoform].append(pdb_id)
+    yield {"type": "pdb_ids", "pdb_ids": pdb_ids}
 
-def main():
-    results = process("NLGN1", "D", 140, "Y", True)
-    for result in results:
-        print(result)
+
+# def main():
+#     results = process("NLGN1", "D", 140, "Y", True)
+#     for result in results:
+#         print(result)
 
 
-main()
+# main()
 
 
 # # Collect all sequences
@@ -311,3 +377,29 @@ main()
 # similarty = calculate_similarity(all_sequences[0][1], all_sequences[1][1])
 # yield f"similarity: {similarty}"
 # print("done")
+
+
+# # Function to search for a specific residue at a position in isoforms of a gene
+# def search_residue(all_sequences, residue, position, gene_name):
+#     matching_isoforms = []
+#     for isoform, sequence in all_sequences:
+#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
+#             matching_isoforms.append(isoform)
+#     return matching_isoforms
+
+
+# Function to search for a specific residue at a position in isoforms of a gene
+# def search_residue(all_isoforms, residue, position, gene_name):
+#     matching_isoforms = {}
+#     for isoform, data in all_isoforms.items():
+#         sequence = data["sequence"]
+#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
+#             matching_isoforms[isoform] = data
+#     return matching_isoforms
+
+# alignment_length = len(best_alignment)
+# print(f"alignment_length: {alignment_length}")
+# print(f"sequence1 length: {len(sequence1)}")
+# print(f"sequence2 length: {len(sequence2)}")
+# similarity = alignment_score / alignment_length * 100
+# return similarityƒf

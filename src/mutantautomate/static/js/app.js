@@ -2,9 +2,9 @@
 // @ts-ignore
 import { render, h } from "preact";
 // @ts-ignore
-import { useReducer, useState, useRef, useEffect } from "preact/hooks";
+import { useRef, useEffect } from "preact/hooks";
 // @ts-ignore
-import { signal } from "@preact/signals";
+import { signal, computed } from "@preact/signals";
 // @ts-ignore
 import { html } from "htm/preact";
 // @ts-ignore
@@ -14,22 +14,141 @@ console.log($3Dmol);
 
 const classes = {
   h2: "text-2xl",
-  button: "bg-white text-black px-4 py-2 rounded outline outline-2",
+  button:
+    "bg-white text-black px-4 py-2 rounded outline outline-2 disabled:bg-gray-200 disabled:text-gray-400",
   input: "block outline outline-2 outline-gray-400 p-1",
+  anchor: "text-blue-700 underline text-left",
 };
+
+const gene_name_signal = signal("NLGN1");
+const residue1_signal = signal("D");
+const position_signal = signal(140);
+const residue2_signal = signal("Y");
+const is_running_signal = signal(false);
+const events_signal = signal([]);
+const log_signal = computed(() =>
+  events_signal.value
+    .map((e) => e.message)
+    .filter((d) => typeof d === "string")
+    .filter((d) => d !== "")
+    .filter((d) => d?.length > 0)
+    .join("\n")
+);
+const pdb_viewer_signal = signal(null);
+const grantham_score_signal = computed(() => {
+  return events_signal.value.find((e) => e.type === "grantham_score");
+});
+const charge_statement_signal = computed(() => {
+  return events_signal.value.find((e) => e.type === "charge_statement");
+});
+const all_isoforms_signal = computed(() => {
+  return events_signal.value.find((e) => e.all_isoforms)?.all_isoforms;
+});
+const filtered_isoforms_signal = computed(() => {
+  return events_signal.value.find((e) => e.filtered_isoforms)
+    ?.filtered_isoforms;
+});
+const pdb_ids_signal = computed(() => {
+  return events_signal.value.find((e) => e.pdb_ids)?.pdb_ids;
+});
+const sequences_signal = computed(() => {
+  return events_signal?.value?.filter((d) => d.type === "sequence") ?? [];
+});
+
+const add_event = (event) => {
+  events_signal.value = [...events_signal.value, event];
+};
+// const log_signal = signal("");
+
+// const add_log = (message) => {
+//   log_signal.value = log_signal.value + "\n" + message;
+// };
 
 export function App() {
   return html`
     <div
-      className="mt-10 max-w-[500px] ms-auto me-auto bg-white rounded rounded-2xl p-10"
+      className="mt-10 max-w-[600px] ms-auto me-auto bg-white rounded rounded-2xl p-10"
     >
       <${Main} />
       <${Separator} />
-      <${SearchTest} />
+      <h2 className=${classes.h2}>Charge Statement</h2>
+      <${Spacer} />
+      <div>${charge_statement_signal?.value?.charge_statement}</div>
       <${Separator} />
-      <${StreamTest} />
+      <h2 className=${classes.h2}>Grantham Score</h2>
+      <${Spacer} />
+      <div>${grantham_score_signal?.value?.grantham_statement}</div>
       <${Separator} />
-      <${GranthamScore} />
+      <h2 className=${classes.h2}>All Isoforms</h2>
+      <${Spacer} />
+      <div className="grid grid-cols-3">
+        ${all_isoforms_signal?.value?.map((isoform) => {
+          const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
+          const found = sequences_signal?.value?.find(
+            (d) => d.isoform === isoform
+          );
+          const icon = found ? "✅" : "";
+          return html`<div className="flex gap-x-2">
+            <span className="w-[2ch]">${icon}</span>
+            <${Anchor} href=${url}>${isoform}</${Anchor}>
+          </div>`;
+        })}
+      </div>
+      <${Separator} />
+      <h2 className=${classes.h2}>Filtered Isoforms</h2>
+      <${Spacer} />
+      <div className="grid grid-cols-4">
+        ${filtered_isoforms_signal?.value?.map((isoform) => {
+          const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
+          const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
+          const fasta_url = `https://www.uniprot.org/uniprot/${isoform}.fasta`;
+          return html`<div>${isoform}</div>
+            <div>
+              <${Anchor} href=${json_url}>JSON</${Anchor}>
+            </div>
+            <div>
+              <${Anchor} href=${text_url}>Text</${Anchor}>
+            </div>
+            <div>
+              <${Anchor} href=${fasta_url}>FASTA</${Anchor}>
+            </div>`;
+        })}
+      </div>
+      <${Separator} />
+      <h2 className=${classes.h2}>PDB IDs</h2>
+      <${Spacer} />
+      <div>
+        ${Object.entries(pdb_ids_signal?.value ?? {}).map(
+          ([isoform, pdb_ids]) => {
+            const isoform_pdb_links = (() => {
+              if (!pdb_ids || pdb_ids.length === 0) {
+                return html`<div className="text-gray-500 ml-[3ch]">
+                  No PDB IDs found
+                </div>`;
+              } else {
+                return pdb_ids.map((id) => {
+                  const url = `https://www.rcsb.org/structure/${id}`;
+                  return html`<div className="grid grid-cols-[repeat(3,6ch)] ml-[3ch]">
+                  <div>${id}</div>
+                  <${Anchor} href=${url}>RCSB</${Anchor}>
+                  <button 
+                  className=${classes.anchor}
+                   onClick=${() => {
+                     pdb_viewer_signal.value = id;
+                   }}>
+                   View
+                  </button>
+                </div>`;
+                });
+              }
+            })();
+            return html`<div>
+              <div>${isoform}</div>
+              ${isoform_pdb_links}
+            </div>`;
+          }
+        )}
+      </div>
       <${Separator} />
       <${PDBViewer} />
     </div>
@@ -37,158 +156,76 @@ export function App() {
 }
 
 function Main() {
-  const [geneName, setGeneName] = useState("NLGN1");
-  const [residue1, setResidue1] = useState("D");
-  const [position, setPosition] = useState("1");
-  const [residue2, setResidue2] = useState("Y");
-  const [topIsoforms, setTopIsoforms] = useState(false);
-
-  return html` <h2 className=${classes.h2}>Main</h2>
+  return html`
+    <h2 className=${classes.h2}>MutantAutoMate</h2>
     <${Spacer} />
-    <label>
-      <div>Gene Name:</div>
-      <input
-        type="text"
-        className=${classes.input}
-        value=${geneName}
-        onInput=${(e) => setGeneName(e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Residue 1:</div>
-      <input
-        type="text"
-        className=${classes.input}
-        value=${residue1}
-        onInput=${(e) => setResidue1(e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Position:</div>
-      <input
-        type="text"
-        className=${classes.input}
-        value=${position}
-        onInput=${(e) => setPosition(e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Resiude2:</div>
-      <input
-        type="text"
-        className=${classes.input}
-        value=${residue2}
-        onInput=${(e) => setResidue2(e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Top Isoforms:</div>
-      <input
-        type="checkbox"
-        className=${classes.input}
-        value=${topIsoforms}
-        onInput=${(e) => setTopIsoforms(e.target.value)}
-      />
-    </label>
+    <div className="flex flex-col gap-y-4">
+      <label>
+        <div>Gene Name:</div>
+        <input
+          type="text"
+          className=${classes.input}
+          value=${gene_name_signal}
+          onInput=${(e) => (gene_name_signal.value = e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Residue 1:</div>
+        <input
+          type="text"
+          className=${classes.input}
+          value=${residue1_signal}
+          onInput=${(e) => (residue1_signal.value = e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Position:</div>
+        <input
+          type="text"
+          className=${classes.input}
+          value=${position_signal}
+          onInput=${(e) => (position_signal.value = e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Resiude 2:</div>
+        <input
+          type="text"
+          className=${classes.input}
+          value=${residue2_signal}
+          onInput=${(e) => (residue2_signal.value = e.target.value)}
+        />
+      </label>
+    </div>
 
     <${Spacer} />
     <button
       className=${classes.button}
+      disabled=${is_running_signal}
       onClick=${() => {
+        events_signal.value = [];
+        is_running_signal.value = true;
         const url = new URL("/process", window.location.origin);
-        url.searchParams.append("gene_name", "NLGN1");
+        url.searchParams.append("gene_name", gene_name_signal);
+        url.searchParams.append("residue1", residue1_signal);
+        url.searchParams.append("position", position_signal);
+        url.searchParams.append("residue2", residue2_signal);
+
         const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
           console.log(event.data);
-        };
-
-        eventSource.onerror = (error) => {
-          console.error("EventSource failed:", error);
-          eventSource.close();
-        };
-      }}
-    >
-      Search
-    </button>`;
-}
-
-function SearchTest() {
-  const [geneName, setGeneName] = useState("NLGN1");
-  const [output, setOutput] = useState("this will be output");
-
-  return html`
-    <h2 className=${classes.h2}>Search Test</h2>
-    <${Spacer} />
-    <label for="aa1">Gene Name:</label>
-    <input
-      type="text"
-      className=${classes.input}
-      id="aa1"
-      name="aa1"
-      value=${geneName}
-      onInput=${(e) => setGeneName(e.target.value)}
-    />
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      onClick=${() => {
-        const url = new URL("/search-uniprot", window.location.origin);
-        url.searchParams.append("gene_name", geneName);
-        fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            setOutput(JSON.stringify(data, null, 2));
-          });
-      }}
-    >
-      Search
-    </button>
-    <${Spacer} />
-    <textarea
-      readonly
-      rows=${10}
-      className="outline outline-black w-full font-mono text-xs"
-      children=${output}
-    >
-    </textarea>
-  `;
-}
-
-function StreamTest() {
-  const [output, setOutput] = useState("this will be output");
-  const [isoforms, setIsoforms] = useState([]);
-  return html`
-    <h2 className=${classes.h2}>Stream Test</h2>
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      onClick=${() => {
-        const url = new URL("/search-uniprot-stream", window.location.origin);
-        url.searchParams.append("gene_name", "NLGN1");
-        const eventSource = new EventSource(url);
-
-        eventSource.onmessage = (event) => {
-          setOutput((prevOutput) => prevOutput + "\n" + event.data);
+          let parsed;
           try {
-            const parsed = JSON.parse(event.data);
-            console.log(parsed);
-            if (parsed.isoforms) {
-              setIsoforms((prevIsoforms) => [
-                ...prevIsoforms,
-                ...parsed.isoforms,
-              ]);
-            }
-            if (parsed.message && parsed.message === "end of stream") {
-              eventSource.close();
-            }
+            parsed = JSON.parse(event.data);
           } catch (e) {
             console.error(e);
+            return;
+          }
+          add_event(parsed);
+          if (parsed.type === "done") {
+            is_running_signal.value = false;
+            eventSource.close();
           }
         };
 
@@ -198,152 +235,57 @@ function StreamTest() {
         };
       }}
     >
-      Start Stream Test
+      Start
     </button>
     <${Spacer} />
-    <textarea
-      readonly
-      rows=${10}
-      className="outline outline-black w-full font-mono text-xs"
-      children=${output}
-    >
-    </textarea>
-    <textarea
-      readonly
-      rows=${10}
-      className="outline outline-black w-full font-mono text-xs"
-      children=${isoforms.join("\n")}
-    >
-    </textarea>
+    <h2>Log</h2>
+    <${LogViewer} />
   `;
 }
 
-function GranthamScore() {
-  const [aa1, setAA1] = useState("D");
-  const [aa2, setAA2] = useState("Y");
-  const [result, setResult] = useState("");
-
-  return html`
-    <h2 className="text-2xl">Grantham Score</h2>
-    <${Spacer} />
-    <div>
-      <label for="aa1">Amino Acid 1:</label>
-      <input
-        type="text"
-        className=${classes.input}
-        id="aa1"
-        name="aa1"
-        value=${aa1}
-        onInput=${(e) => setAA1(e.target.value)}
-      />
-    </div>
-    <${Spacer} />
-    <div>
-      <label for="aa2">Amino Acid 2:</label>
-      <input
-        type="text"
-        className=${classes.input}
-        id="aa2"
-        name="aa2"
-        value=${aa2}
-        onInput=${(e) => setAA2(e.target.value)}
-      />
-    </div>
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      onClick=${(e) => {
-        const url = new URL("/grantham", window.location.origin);
-        url.searchParams.append("amino_acid_1", aa1);
-        url.searchParams.append("amino_acid_2", aa2);
-        fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            setResult(JSON.stringify(data, null, 2));
-          });
-      }}
-    >
-      Get Grantham Score
-    </button>
-    <${Spacer} />
-    <div>
-      <textarea
-        readonly
-        rows=${10}
-        className="outline outline-black w-full font-mono text-xs"
-        children=${result}
-      >
-      </textarea>
-    </div>
-  `;
+function LogViewer() {
+  const textAreaRef = useRef(null);
+  useEffect(() => {
+    textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight;
+  }, [log_signal.value]);
+  return html`<textarea
+    ref=${textAreaRef}
+    readonly
+    rows=${20}
+    className="p-2 outline outline-black w-full font-mono text-xs"
+    children=${log_signal}
+    placeholder="Log"
+  >
+  </textarea>`;
 }
 
 function PDBViewer() {
-  const [pdbId, setPdbId] = useState("1BNA");
   const viewerRef = useRef(null);
   useEffect(() => {
     viewerRef.current = $3Dmol.createViewer("viewer", {
       defaultcolors: $3Dmol.rasmolElementColors,
     });
-    viewerRef.current.setBackgroundColor(0xff00ff);
+    viewerRef.current.setBackgroundColor("grey");
   }, []);
+
+  useEffect(() => {
+    if (!pdb_viewer_signal.value) {
+      return;
+    }
+    console.log(`PDB ID: ${pdb_viewer_signal.value}`);
+    const viewer = viewerRef.current;
+    viewer.clear();
+    viewer.setBackgroundColor(0xffffff);
+    $3Dmol.download(`pdb:${pdb_viewer_signal.value}`, viewer, {}, () => {
+      viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+      viewer.zoomTo();
+      viewer.render();
+    });
+  }, [pdb_viewer_signal.value]);
   return html`
     <h2 className=${classes.h2}>PDB Viewer</h2>
     <${Spacer} />
-    <div>
-      <label>PDB ID:</label>
-      <input
-        type="text"
-        className=${classes.input}
-        id="pdb_id"
-        name="pdb_id"
-        value=${pdbId}
-      />
-    </div>
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      onClick=${(e) => {
-        const viewer = viewerRef.current;
-        viewer.clear();
-        viewer.setBackgroundColor(0xffffff);
-        $3Dmol.download(`pdb:${pdbId}`, viewer, {}, () => {
-          viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-          viewer.zoomTo();
-          viewer.render();
-        });
-        // const url = new URL(
-        //   `https://files.rcsb.org/view/${pdbId}.pdb`,
-        //   window.location.origin
-        // );
-        // viewer.current.load("rcsb://" + pdbId, "pdb", () => {
-        //   viewer.current.zoomTo();
-        //   viewer.current.render();
-        // fetch(url)
-        //   .then((response) => {
-        //     if (!response.ok) {
-        //       throw new Error(`HTTP error! status: ${response.status}`);
-        //     }
-        //     return response.text();
-        //   })
-        //   .then((data) => {
-        //     viewer.addModel(data, "pdb"); // Load the new PDB data
-        //     viewer.setStyle({}, { cartoon: { color: "spectrum" } }); // Set style
-        //     viewer.zoomTo(); // Zoom to fit the model
-        //     viewer.render(); // Render the model
-        //   })
-        //   .catch((e) => {
-        //     console.error(e);
-        //   });
-      }}
-    >
-      Load
-    </button>
+    <div>PDB ID: ${pdb_viewer_signal}</div>
     <${Spacer} />
     <div
       id="viewer"
@@ -362,4 +304,85 @@ function Spacer({ size = 5 }) {
   return html`<div className=${`h-${size}`}></div>`;
 }
 
+function Anchor({ children, href }) {
+  return html`<a
+    href=${href}
+    target="_blank"
+    rel="noreferrer"
+    className=${classes.anchor}
+  >
+    ${children}
+  </a>`;
+}
+
 render(h(App), document.body);
+
+// function PDBViewer() {
+//   const viewerRef = useRef(null);
+//   useEffect(() => {
+//     viewerRef.current = $3Dmol.createViewer("viewer", {
+//       defaultcolors: $3Dmol.rasmolElementColors,
+//     });
+//     viewerRef.current.setBackgroundColor("grey");
+//   }, []);
+//   return html`
+//     <h2 className=${classes.h2}>PDB Viewer</h2>
+//     <${Spacer} />
+//     <div>
+//       <label>PDB ID:</label>
+//       <input
+//         type="text"
+//         className=${classes.input}
+//         id="pdb_id"
+//         name="pdb_id"
+//         value=${pdb_viewer_signal}
+//         onInput=${(e) => (pdb_viewer_signal.value = e.target.value)}
+//       />
+//     </div>
+//     <${Spacer} />
+//     <button
+//       className=${classes.button}
+//       onClick=${(e) => {
+//         console.log(`PDB ID: ${pdb_viewer_signal.value}`);
+//         const viewer = viewerRef.current;
+//         viewer.clear();
+//         viewer.setBackgroundColor(0xffffff);
+//         $3Dmol.download(`pdb:${pdb_viewer_signal.value}`, viewer, {}, () => {
+//           viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+//           viewer.zoomTo();
+//           viewer.render();
+//         });
+//         // const url = new URL(
+//         //   `https://files.rcsb.org/view/${pdbId}.pdb`,
+//         //   window.location.origin
+//         // );
+//         // viewer.current.load("rcsb://" + pdbId, "pdb", () => {
+//         //   viewer.current.zoomTo();
+//         //   viewer.current.render();
+//         // fetch(url)
+//         //   .then((response) => {
+//         //     if (!response.ok) {
+//         //       throw new Error(`HTTP error! status: ${response.status}`);
+//         //     }
+//         //     return response.text();
+//         //   })
+//         //   .then((data) => {
+//         //     viewer.addModel(data, "pdb"); // Load the new PDB data
+//         //     viewer.setStyle({}, { cartoon: { color: "spectrum" } }); // Set style
+//         //     viewer.zoomTo(); // Zoom to fit the model
+//         //     viewer.render(); // Render the model
+//         //   })
+//         //   .catch((e) => {
+//         //     console.error(e);
+//         //   });
+//       }}
+//     >
+//       Load
+//     </button>
+//     <${Spacer} />
+//     <div
+//       id="viewer"
+//       className="w-full h-[500px] relative outline outline-black"
+//     ></div>
+//   `;
+// }
