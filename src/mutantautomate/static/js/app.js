@@ -4,7 +4,7 @@ import { render, h } from "preact";
 // @ts-ignore
 import { useRef, useEffect } from "preact/hooks";
 // @ts-ignore
-import { signal, computed } from "@preact/signals";
+import { signal, computed, useSignal, useSignalEffect } from "@preact/signals";
 // @ts-ignore
 import { html } from "htm/preact";
 // @ts-ignore
@@ -58,11 +58,6 @@ const sequences_signal = computed(() => {
 const add_event = (event) => {
   events_signal.value = [...events_signal.value, event];
 };
-// const log_signal = signal("");
-
-// const add_log = (message) => {
-//   log_signal.value = log_signal.value + "\n" + message;
-// };
 
 export function App() {
   return html`
@@ -264,6 +259,8 @@ function PDBViewer() {
   useEffect(() => {
     viewerRef.current = $3Dmol.createViewer("viewer", {
       defaultcolors: $3Dmol.rasmolElementColors,
+      lowerZoomLimit: 1,
+      upperZoomLimit: 500,
     });
     viewerRef.current.setBackgroundColor("grey");
   }, []);
@@ -276,21 +273,63 @@ function PDBViewer() {
     const viewer = viewerRef.current;
     viewer.clear();
     viewer.setBackgroundColor(0xffffff);
-    $3Dmol.download(`pdb:${pdb_viewer_signal.value}`, viewer, {}, () => {
-      viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-      viewer.zoomTo();
-      viewer.render();
-    });
+    fetch(`https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`)
+      .then((res) => res.text())
+      .then((pdb_data) => {
+        console.log("PDB", pdb_data);
+        viewer.addModel(pdb_data, "pdb");
+        viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+        viewer.zoomTo();
+        viewer.render();
+      });
   }, [pdb_viewer_signal.value]);
+
   return html`
     <h2 className=${classes.h2}>PDB Viewer</h2>
     <${Spacer} />
-    <div>PDB ID: ${pdb_viewer_signal}</div>
+    <div>
+      PDB ID:
+      <span className="ml-2">${pdb_viewer_signal.value ?? `None`}</span>
+    </div>
+    <${Spacer} />
+    <${PDBViewerInput} />
     <${Spacer} />
     <div
       id="viewer"
       className="w-full h-[500px] relative outline outline-black"
     ></div>
+  `;
+}
+
+function PDBViewerInput() {
+  const pdb_internal = useSignal("5OJK");
+  useSignalEffect(() => {
+    if (
+      pdb_viewer_signal.value &&
+      pdb_internal.value !== pdb_viewer_signal.value
+    ) {
+      pdb_internal.value = pdb_viewer_signal.value;
+    }
+  });
+  return html`
+    <div className="flex gap-x-4">
+      <input
+        type="text"
+        className=${classes.input}
+        id="pdb_id"
+        name="pdb_id"
+        value=${pdb_internal}
+        onInput=${(e) => (pdb_internal.value = e.target.value)}
+      />
+      <button
+        className=${classes.button}
+        onClick=${() => {
+          pdb_viewer_signal.value = pdb_internal.value;
+        }}
+      >
+        Set
+      </button>
+    </div>
   `;
 }
 
