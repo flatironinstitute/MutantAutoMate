@@ -26,6 +26,8 @@ const position_signal = signal(140);
 const residue2_signal = signal("Y");
 const is_running_signal = signal(false);
 const events_signal = signal([]);
+const pdb_data_signal = signal({});
+
 const log_signal = computed(() =>
   events_signal.value
     .map((e) => e.message)
@@ -294,6 +296,38 @@ function PDBViewer() {
     <${Spacer} />
     <${PDBViewerInput} />
     <${Spacer} />
+    <button
+      className=${classes.button}
+      onClick=${() => {
+        const position = position_signal.value;
+        const residue1 = residue1_signal.value;
+        const viewer = viewerRef.current;
+        if (!viewer) {
+          return;
+        }
+        // viewer.removeAllLabels();
+        // viewer.addResLabels({
+        //   atom: "CA",
+        //   resi: position,
+        //   chain: "A",
+        //   text: `${residue1}${position}${residue2}`,
+        //   color: "black",
+        //   fontSize: 12,
+        //   backgroundColor: "white",
+        // });
+        const selection = {
+          resn: residue1,
+          resi: position,
+        };
+        // viewer.setStyle(selection, { stick: { colorscheme: "greenCarbon" } });
+        // viewer.setStyle(selection, { cartoon: { color: "red" } });
+        // viewer.render();
+        viewer.zoomTo(selection, 1e3);
+      }}
+    >
+      Zoom to: ${residue1_signal}${position_signal}
+    </button>
+    <${Spacer} />
     <div
       id="viewer"
       className="w-full h-[500px] relative outline outline-black"
@@ -355,73 +389,3 @@ function Anchor({ children, href }) {
 }
 
 render(h(App), document.body);
-
-// function PDBViewer() {
-//   const viewerRef = useRef(null);
-//   useEffect(() => {
-//     viewerRef.current = $3Dmol.createViewer("viewer", {
-//       defaultcolors: $3Dmol.rasmolElementColors,
-//     });
-//     viewerRef.current.setBackgroundColor("grey");
-//   }, []);
-//   return html`
-//     <h2 className=${classes.h2}>PDB Viewer</h2>
-//     <${Spacer} />
-//     <div>
-//       <label>PDB ID:</label>
-//       <input
-//         type="text"
-//         className=${classes.input}
-//         id="pdb_id"
-//         name="pdb_id"
-//         value=${pdb_viewer_signal}
-//         onInput=${(e) => (pdb_viewer_signal.value = e.target.value)}
-//       />
-//     </div>
-//     <${Spacer} />
-//     <button
-//       className=${classes.button}
-//       onClick=${(e) => {
-//         console.log(`PDB ID: ${pdb_viewer_signal.value}`);
-//         const viewer = viewerRef.current;
-//         viewer.clear();
-//         viewer.setBackgroundColor(0xffffff);
-//         $3Dmol.download(`pdb:${pdb_viewer_signal.value}`, viewer, {}, () => {
-//           viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-//           viewer.zoomTo();
-//           viewer.render();
-//         });
-//         // const url = new URL(
-//         //   `https://files.rcsb.org/view/${pdbId}.pdb`,
-//         //   window.location.origin
-//         // );
-//         // viewer.current.load("rcsb://" + pdbId, "pdb", () => {
-//         //   viewer.current.zoomTo();
-//         //   viewer.current.render();
-//         // fetch(url)
-//         //   .then((response) => {
-//         //     if (!response.ok) {
-//         //       throw new Error(`HTTP error! status: ${response.status}`);
-//         //     }
-//         //     return response.text();
-//         //   })
-//         //   .then((data) => {
-//         //     viewer.addModel(data, "pdb"); // Load the new PDB data
-//         //     viewer.setStyle({}, { cartoon: { color: "spectrum" } }); // Set style
-//         //     viewer.zoomTo(); // Zoom to fit the model
-//         //     viewer.render(); // Render the model
-//         //   })
-//         //   .catch((e) => {
-//         //     console.error(e);
-//         //   });
-//       }}
-//     >
-//       Load
-//     </button>
-//     <${Spacer} />
-//     <div
-//       id="viewer"
-//       className="w-full h-[500px] relative outline outline-black"
-//     ></div>
-//   `;
-// }
