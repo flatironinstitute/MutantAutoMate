@@ -66,7 +66,7 @@ export function App() {
     <div
       className="mt-10 max-w-[600px] ms-auto me-auto bg-white rounded rounded-2xl p-10"
     >
-      <${Main} />
+      <${Inputs} />
       <${Separator} />
       <h2 className=${classes.h2}>Charge Statement</h2>
       <${Spacer} />
@@ -152,9 +152,32 @@ export function App() {
   `;
 }
 
-function Main() {
+function Inputs() {
   return html`
     <h2 className=${classes.h2}>MutantAutoMate</h2>
+    <${Spacer} />
+    <button
+      className="block mb-2"
+      onClick=${() => {
+        gene_name_signal.value = "NLGN1";
+        residue1_signal.value = "D";
+        position_signal.value = 140;
+        residue2_signal.value = "Y";
+      }}
+    >
+      Example 1
+    </button>
+    <button
+      className="block mb-2"
+      onClick=${() => {
+        gene_name_signal.value = "SHANK3";
+        residue1_signal.value = "D";
+        position_signal.value = 26;
+        residue2_signal.value = "C";
+      }}
+    >
+      Example 2
+    </button>
     <${Spacer} />
     <div className="flex flex-col gap-y-4">
       <label>
@@ -257,33 +280,93 @@ function LogViewer() {
 }
 
 function PDBViewer() {
-  const viewerRef = useRef(null);
+  const viewerDivRef = useRef(null);
+  const viewersRef = useRef(null);
+  // const viewer1Ref = useRef(null);
   useEffect(() => {
-    viewerRef.current = $3Dmol.createViewer("viewer", {
-      defaultcolors: $3Dmol.rasmolElementColors,
-      lowerZoomLimit: 1,
-      upperZoomLimit: 500,
-    });
-    viewerRef.current.setBackgroundColor("grey");
+    if (!viewerDivRef.current) {
+      return;
+    }
+    const viewers = $3Dmol.createViewerGrid(
+      viewerDivRef.current,
+      {
+        rows: 2,
+        cols: 1,
+        control_all: true,
+      }
+      // { backgroundColor: "lightgrey" }
+    );
+    viewersRef.current = viewers;
+    // console.log(viewers);
+    // viewerRef.current = $3Dmol.createViewer("viewer", {
+    //   defaultcolors: $3Dmol.rasmolElementColors,
+    //   lowerZoomLimit: 1,
+    //   upperZoomLimit: 500,
+    // });
+    // mutatedViewerRef.current = $3Dmol.createViewer("viewer2", {
+    //   defaultcolors: $3Dmol.rasmolElementColors,
+    //   lowerZoomLimit: 1,
+    //   upperZoomLimit: 500,
+    // });
+    // viewerRef.current.setBackgroundColor("grey");
   }, []);
 
   useEffect(() => {
-    if (!pdb_viewer_signal.value) {
+    if (!viewersRef.current || !pdb_viewer_signal.value) {
       return;
     }
     console.log(`PDB ID: ${pdb_viewer_signal.value}`);
-    const viewer = viewerRef.current;
-    viewer.clear();
-    viewer.setBackgroundColor(0xffffff);
-    fetch(`https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`)
-      .then((res) => res.text())
-      .then((pdb_data) => {
-        console.log("PDB", pdb_data);
-        viewer.addModel(pdb_data, "pdb");
-        viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-        viewer.zoomTo();
-        viewer.render();
-      });
+    const viewers = viewersRef.current;
+    const viewer1 = viewers[0][0];
+    const viewer2 = viewers[1][0];
+    viewer1.clear();
+    viewer2.clear();
+    (async () => {
+      const pdb_data = await fetch(
+        `https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`
+      ).then((res) => res.text());
+
+      viewer1.addModel(pdb_data, "pdb");
+      viewer1.setStyle({}, { cartoon: { color: "gray" } });
+      viewer1.zoomTo();
+      viewer1.render();
+
+      const mutated_pdb_data = await fetch(`/mutate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pdb_string: pdb_data,
+          residue1: residue1_signal.value,
+          position: position_signal.value,
+          residue2: residue2_signal.value,
+        }),
+      }).then((res) => res.text());
+
+      if (mutated_pdb_data) {
+        viewer2.addModel(mutated_pdb_data, "pdb");
+        viewer2.setStyle({}, { cartoon: { color: "gray" } });
+        viewer2.zoomTo();
+        viewer2.render();
+      }
+    })();
+
+    // fetch(`https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`)
+    //   .then((res) => res.text())
+    //   .then((pdb_data) => {
+    //     // console.log("PDB", pdb_data);
+
+    //     viewer1.addModel(pdb_data, "pdb");
+    //     viewer1.setStyle({}, { cartoon: { color: "gray" } });
+    //     viewer1.zoomTo();
+    //     viewer1.render();
+
+    //     viewer2.addModel(pdb_data, "pdb");
+    //     viewer2.setStyle({}, { cartoon: { color: "gray" } });
+    //     viewer2.zoomTo();
+    //     viewer2.render();
+    //   });
   }, [pdb_viewer_signal.value]);
 
   return html`
@@ -301,8 +384,9 @@ function PDBViewer() {
       onClick=${() => {
         const position = position_signal.value;
         const residue1 = residue1_signal.value;
-        const viewer = viewerRef.current;
-        if (!viewer) {
+        const rows = viewersRef.current;
+        // const viewer = viewer1Ref.current;
+        if (!rows) {
           return;
         }
         // viewer.removeAllLabels();
@@ -315,34 +399,64 @@ function PDBViewer() {
         //   fontSize: 12,
         //   backgroundColor: "white",
         // });
-        const selection = {
-          resn: residue1,
-          resi: position,
-        };
+        // const selection = {
+        //   resn: residue1,
+        //   resi: position,
+        // };
         // viewer.setStyle(selection, { stick: { colorscheme: "greenCarbon" } });
         // viewer.setStyle(selection, { cartoon: { color: "red" } });
         // viewer.render();
-        viewer.zoomTo(selection, 1e3);
+        // viewer.zoomTo(selection, 1e3);
+
+        for (const row of rows) {
+          const viewer = row[0];
+          // Style for residue in red
+          viewer.setStyle({ resi: position }, { cartoon: { color: "red" } });
+
+          // Label for residue
+          viewer.addLabel(
+            position,
+            {
+              // position: "center",
+              backgroundOpacity: 0.8,
+              fontSize: 12,
+              color: "red",
+              showBackground: true,
+            },
+            { resi: position }
+          );
+
+          // Additional styling and configurations
+          // viewer.setStyle(
+          //   { hetflag: true },
+          //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
+          // ); // Heteroatoms
+          // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
+
+          // Zoom and render
+          viewer.render();
+          viewer.zoomTo({ resi: residue1 }, 500);
+        }
       }}
     >
       Zoom to: ${residue1_signal}${position_signal}
     </button>
     <${Spacer} />
     <div
-      id="viewer"
-      className="w-full h-[500px] relative outline outline-black"
+      ref=${viewerDivRef}
+      className="w-full h-[1000px] relative outline outline-black"
     ></div>
   `;
 }
 
 function PDBViewerInput() {
-  const pdb_internal = useSignal("5OJK");
+  const pdb_internal = useSignal("5OJ6");
   useSignalEffect(() => {
     if (
       pdb_viewer_signal.value &&
       pdb_internal.value !== pdb_viewer_signal.value
     ) {
-      pdb_internal.value = pdb_viewer_signal.value;
+      // pdb_internal.value = pdb_viewer_signal.value;
     }
   });
   return html`
