@@ -17,7 +17,7 @@ from requests.adapters import HTTPAdapter, Retry
 
 # Import process from process.py
 from process import process
-from mutate_residue import mutate_residue
+from pdb_helpers import mutate_residue
 
 app = Flask(__name__)
 
