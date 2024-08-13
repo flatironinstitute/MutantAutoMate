@@ -179,14 +179,18 @@ def search_residue(sequence, residue, position):
 
 
 def get_gene_name(uniprot_id):
-    url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
-    response = requests.get(url)
-    lines = response.text.split("\n")
-    for line in lines:
-        if line.startswith("GN   Name="):
-            gene_name = line.split("GN   Name=")[1].split(";")[0]
-            return gene_name
-    return None
+    url = f"https://www.uniprot.org/uniprot/{uniprot_id}.json"
+    response = session.get(url)
+    response.raise_for_status()
+    data = response.json()
+    gene_name = None
+    if "genes" in data:
+        first_gene = data["genes"][0]
+        try:
+            gene_name = first_gene["geneName"]["value"]
+        except KeyError:
+            gene_name = None
+    return gene_name
 
 
 def get_gene_names_generator(isoforms):
@@ -272,14 +276,18 @@ def process(gene_name, residue1, position, residue2):
     # Get gene names for matching isoforms
     for result in get_gene_names_generator(matching_isoforms.keys()):
         isoform = result["isoform"]
-        gene_name = result["gene_name"]
-        all_isoforms[isoform]["gene_name"] = gene_name
-        yield {"message": f"got gene name for {isoform}", "gene_name": gene_name}
+        this_gene_name = result["gene_name"]
+        all_isoforms[isoform]["gene_name"] = this_gene_name
+        yield {
+            "message": f"got gene name for {isoform}: {this_gene_name}",
+            "gene_name": this_gene_name,
+        }
 
     # Filter isforms that match the input gene name
     filtered_isoforms = {}
     for isoform in matching_isoforms:
         this_gene_name = matching_isoforms[isoform]["gene_name"]
+        yield {"message": f"gene names for {isoform}: {this_gene_name} and {gene_name}"}
         if this_gene_name == gene_name:
             filtered_isoforms[isoform] = matching_isoforms[isoform]
     yield {
@@ -324,13 +332,13 @@ def process(gene_name, residue1, position, residue2):
     yield {"type": "pdb_ids", "pdb_ids": pdb_ids}
 
 
-# def main():
-#     results = process("NLGN1", "D", 140, "Y", True)
+# def example():
+#     results = process("NLGN1", "D", 140, "Y")
 #     for result in results:
 #         print(result)
 
 
-# main()
+# example()
 
 
 # # Collect all sequences
@@ -403,3 +411,13 @@ def process(gene_name, residue1, position, residue2):
 # print(f"sequence2 length: {len(sequence2)}")
 # similarity = alignment_score / alignment_length * 100
 # return similarityƒf
+
+# def get_gene_name(uniprot_id):
+#     url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
+#     response = requests.get(url)
+#     lines = response.text.split("\n")
+#     for line in lines:
+#         if line.startswith("GN   Name="):
+#             gene_name = line.split("GN   Name=")[1].split(";")[0]
+#             return gene_name
+#     return None
