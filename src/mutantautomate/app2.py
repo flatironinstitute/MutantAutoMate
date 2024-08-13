@@ -61,7 +61,7 @@ def process_route():
 @app.route("/mutate", methods=["POST"])
 def mutate_route():
     data = request.get_json()  # Get JSON payload
-    
+
     pdb_string = data.get("pdb_string")
     residue1 = data.get("residue1")
     position = int(data.get("position"))
@@ -69,4 +69,4 @@ def mutate_route():
 
     mutated = mutate_residue(pdb_string, position, residue1, residue2)
 
-    return jsonify({"mutated": mutated})
+    return mutated
