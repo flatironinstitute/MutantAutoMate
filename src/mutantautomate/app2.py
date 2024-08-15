@@ -17,7 +17,7 @@ from requests.adapters import HTTPAdapter, Retry
 
 # Import process from process.py
 from process import process
-from pdb_helpers import mutate_residue
+from pdb_helpers import mutate_residue, trim_pdb
 
 app = Flask(__name__)
 
@@ -70,3 +70,12 @@ def mutate_route():
     mutated = mutate_residue(pdb_string, position, residue1, residue2)
 
     return mutated
+
+
+@app.route("/trim_pdb", methods=["POST"])
+def trim_pdb_route():
+    data = request.get_json()
+    pdb_data = data.get("pdb_data")
+    chains = data.get("chains")
+    pdb_string = trim_pdb(pdb_data, chains)
+    return pdb_string

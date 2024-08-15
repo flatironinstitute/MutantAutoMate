@@ -28,6 +28,15 @@ amino_acid_mapping = {
 }
 
 
+def fixer_to_string(fixer):
+    output_file_handle = StringIO()
+    PDBFile.writeFile(
+        fixer.topology, fixer.positions, file=output_file_handle, keepIds=True
+    )
+    out_string = output_file_handle.getvalue()
+    return out_string
+
+
 def mutate_residue(pdb_string, position, original_residue_, new_residue_):
     # Convert the residue names to three-letter codes
     original_residue = amino_acid_mapping[original_residue_]
@@ -45,52 +54,40 @@ def mutate_residue(pdb_string, position, original_residue_, new_residue_):
     fixer.findMissingResidues()
     fixer.findMissingAtoms()
     fixer.addMissingAtoms()
-    # fixer.addMissingHydrogens()
+    fixer.addMissingHydrogens()
 
-    # out_string = pdb_file_handle.getvalue()
-    output_file_handle = StringIO()
-    PDBFile.writeFile(
-        fixer.topology, fixer.positions, file=output_file_handle, keepIds=True
-    )
-
-    out_string = output_file_handle.getvalue()
+    out_string = fixer_to_string(fixer)
 
     return out_string
 
 
-# def mutate_residue(pdb_string, position, original_residue_, new_residue_):
-#     # Create a PDB parser object
-#     parser = PDB.PDBParser(QUIET=True)
+def trim_pdb(pdb_string, chains_to_keep):
+    # Create a filehandle from the string
+    pdb_file_handle = StringIO(pdb_string)
 
-#     # Create a filehandle from the string
-#     pdb_handle = StringIO(pdb_string)
+    fixer = pdbfixer.PDBFixer(pdbfile=pdb_file_handle)
 
-#     structure = parser.get_structure("structure", pdb_handle)
+    chains = fixer.topology.chains()
 
-#     # Convert the residue names to three-letter codes
-#     original_residue = amino_acid_mapping[original_residue_]
-#     new_residue = amino_acid_mapping[new_residue_]
+    chains_list = list(chains)
 
-#     for model in structure:
-#         for chain in model:
-#             for res in chain:
-#                 if (
-#                     res.get_id()[1] == position
-#                     and res.get_resname() == original_residue
-#                 ):
-#                     # Create a new residue with the new residue name
-#                     res.resname = new_residue
-#                     print(
-#                         f"Mutating residue at position {position} from {original_residue} to {new_residue}"
-#                     )
+    print(f"Number of chains: {len(chains_list)}")
 
-#     output_file_handle = StringIO()
+    chains_to_remove = []
 
-#     # Create a PDB IO object to save the modified structure
-#     out_structure = PDB.PDBIO()
-#     out_structure.set_structure(structure)
-#     out_structure.save(output_file_handle)
+    # print(list(chains), len(list(chains)))
 
-#     out_string = output_file_handle.getvalue()
+    for chain in chains_list:
+        print(chain.id)
+        this_chain_id = chain.id
+        if this_chain_id not in chains_to_keep:
+            print(f"Removing chain {this_chain_id}")
+            chains_to_remove.append(this_chain_id)
+        else:
+            print(f"Keeping chain {this_chain_id}")
 
-#     return out_string
+    fixer.removeChains(chainIds=chains_to_remove)
+
+    out_string = fixer_to_string(fixer)
+
+    return out_string
