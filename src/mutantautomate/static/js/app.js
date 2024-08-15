@@ -3,8 +3,11 @@
 import { render, h } from "preact";
 // @ts-ignore
 import { useRef, useEffect } from "preact/hooks";
-// @ts-ignore
-import { signal, computed, useSignal, useSignalEffect } from "@preact/signals";
+import {
+  signal,
+  computed,
+  // @ts-ignore
+} from "@preact/signals";
 // @ts-ignore
 import { html } from "htm/preact";
 // @ts-ignore
@@ -14,8 +17,10 @@ console.log($3Dmol);
 
 const classes = {
   h2: "text-2xl",
+  h3: "text-lg font-bold",
   button:
-    "bg-white text-black px-4 py-2 rounded outline outline-2 disabled:bg-gray-200 disabled:text-gray-400",
+    "bg-white text-black px-2 py-1 rounded outline outline-1 disabled:bg-gray-200 disabled:text-gray-400",
+  buttonSmall: `bg-white text-black rounded outline outline-1 disabled:bg-gray-200 disabled:text-gray-400 [padding-inline:1ch]`,
   input: "block outline outline-2 outline-gray-400 p-1",
   anchor: "text-blue-700 underline text-left",
 };
@@ -26,7 +31,9 @@ const position_signal = signal(140);
 const residue2_signal = signal("Y");
 const is_running_signal = signal(false);
 const events_signal = signal([]);
-const pdb_data_signal = signal({});
+const pdb_data_raw_signal = signal(null);
+const pdb_data_trimmed_signal = signal(null);
+const pdb_data_mutated_signal = signal(null);
 
 const log_signal = computed(() =>
   events_signal.value
@@ -36,7 +43,6 @@ const log_signal = computed(() =>
     .filter((d) => d?.length > 0)
     .join("\n")
 );
-const pdb_viewer_signal = signal(null);
 const grantham_score_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "grantham_score");
 });
@@ -45,6 +51,10 @@ const charge_statement_signal = computed(() => {
 });
 const all_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.all_isoforms)?.all_isoforms;
+});
+const matching_isoforms_signal = computed(() => {
+  return events_signal.value.find((e) => e.matching_isoforms)
+    ?.matching_isoforms;
 });
 const filtered_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.filtered_isoforms)
@@ -64,7 +74,7 @@ const add_event = (event) => {
 export function App() {
   return html`
     <div
-      className="mt-10 max-w-[600px] ms-auto me-auto bg-white rounded rounded-2xl p-10"
+      className="mt-10 max-w-[min(700px,90vw)] ms-auto me-auto bg-white rounded rounded-2xl p-10"
     >
       <${Inputs} />
       <${Separator} />
@@ -78,106 +88,225 @@ export function App() {
       <${Separator} />
       <h2 className=${classes.h2}>All Isoforms</h2>
       <${Spacer} />
-      <div className="grid grid-cols-3">
-        ${all_isoforms_signal?.value?.map((isoform) => {
-          const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
-          const found = sequences_signal?.value?.find(
-            (d) => d.isoform === isoform
-          );
-          const icon = found ? "✅" : "";
-          return html`<div className="flex gap-x-2">
-            <span className="w-[2ch]">${icon}</span>
-            <${Anchor} href=${url}>${isoform}</${Anchor}>
-          </div>`;
-        })}
-      </div>
+      <${IsoformsTable} />
       <${Separator} />
       <h2 className=${classes.h2}>Filtered Isoforms</h2>
       <${Spacer} />
-      <div className="grid grid-cols-4">
-        ${filtered_isoforms_signal?.value?.map((isoform) => {
-          const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
-          const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
-          const fasta_url = `https://www.uniprot.org/uniprot/${isoform}.fasta`;
-          return html`<div>${isoform}</div>
-            <div>
-              <${Anchor} href=${json_url}>JSON</${Anchor}>
-            </div>
-            <div>
-              <${Anchor} href=${text_url}>Text</${Anchor}>
-            </div>
-            <div>
-              <${Anchor} href=${fasta_url}>FASTA</${Anchor}>
-            </div>`;
-        })}
-      </div>
+      <${IsoformCards} />
       <${Separator} />
-      <h2 className=${classes.h2}>PDB IDs</h2>
+      <h2 className=${classes.h2}>PDB Data</h2>
       <${Spacer} />
-      <div>
-        ${Object.entries(pdb_ids_signal?.value ?? {}).map(
-          ([isoform, pdb_ids]) => {
-            const isoform_pdb_links = (() => {
-              if (!pdb_ids || pdb_ids.length === 0) {
-                return html`<div className="text-gray-500 ml-[3ch]">
-                  No PDB IDs found
-                </div>`;
-              } else {
-                return pdb_ids.map((id) => {
-                  const url = `https://www.rcsb.org/structure/${id}`;
-                  return html`<div className="grid grid-cols-[repeat(3,6ch)] ml-[3ch]">
-                  <div>${id}</div>
-                  <${Anchor} href=${url}>RCSB</${Anchor}>
-                  <button 
-                  className=${classes.anchor}
-                   onClick=${() => {
-                     pdb_viewer_signal.value = id;
-                   }}>
-                   View
-                  </button>
-                </div>`;
-                });
-              }
-            })();
-            return html`<div>
-              <div>${isoform}</div>
-              ${isoform_pdb_links}
-            </div>`;
-          }
-        )}
-      </div>
+      <textarea
+        readonly
+        rows=${20}
+        className="p-2 outline outline-black w-full font-mono text-xs"
+        children=${pdb_data_raw_signal}
+        placeholder="Raw PDB Data"
+      >
+      </textarea>
+      <${Spacer} />
+      <textarea
+        readonly
+        rows=${20}
+        className="p-2 outline outline-black w-full font-mono text-xs"
+        children=${pdb_data_trimmed_signal}
+        placeholder="Trimmed PDB Data"
+      >
+      </textarea>
+      <${Spacer} />
+      <button
+        className=${classes.button}
+        onClick=${async () => {
+          const mutated_pdb_data = await fetch(`/mutate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              pdb_string: pdb_data_trimmed_signal.value,
+              residue1: residue1_signal.value,
+              position: position_signal.value,
+              residue2: residue2_signal.value,
+            }),
+          }).then((res) => res.text());
+          pdb_data_mutated_signal.value = mutated_pdb_data;
+        }}
+      >
+        Mutate PDB
+      </button>
+      <${Spacer} />
+      <textarea
+        readonly
+        rows=${20}
+        className="p-2 outline outline-black w-full font-mono text-xs"
+        children=${pdb_data_mutated_signal}
+        placeholder="Mutated PDB Data"
+      >
+      </textarea>
       <${Separator} />
       <${PDBViewer} />
     </div>
   `;
 }
 
+function IsoformCards() {
+  const filtered_isoforms = filtered_isoforms_signal.value ?? [];
+  const cards = filtered_isoforms.map((isoform) => {
+    const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
+    const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
+    const fasta_url = `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`;
+    const text_anchor = html`<${Anchor} href=${text_url}>Text</${Anchor}>`;
+    const json_anchor = html`<${Anchor} href=${json_url}>JSON</${Anchor}>`;
+    const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
+    const anchors = html`${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
+    const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
+    let pdb_rows = html`<div className="text-gray-500 ml-[3ch]">
+      No PDB IDs found
+    </div>`;
+    if (pdb_ids.length > 0) {
+      pdb_rows = pdb_ids.map(([pdb_id, chains_text]) => {
+        let chains = null;
+        if (chains_text) {
+          chains = chains_text.split("=")[0].split("/");
+        }
+        const url = `https://www.rcsb.org/structure/${pdb_id}`;
+        const fetch_pdb = async () => {
+          const pdb_string_raw = await fetch(
+            `https://files.rcsb.org/download/${pdb_id}.pdb`
+          ).then((res) => res.text());
+          pdb_data_raw_signal.value = pdb_string_raw;
+          const trimmed = await fetch(`/trim_pdb`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ pdb_data: pdb_string_raw, chains }),
+          }).then((res) => res.text());
+          pdb_data_trimmed_signal.value = trimmed;
+        };
+        return html`
+          <div className="ml-[3ch] flex gap-x-2">
+            <${Anchor} href=${url}>${pdb_id}</${Anchor}>
+            <span>Chains: ${chains ? chains.join(`, `) : `-`}</span>
+            <button className=${
+              classes.buttonSmall
+            } onClick=${fetch_pdb}>Load PDB</button>
+          </div>
+        `;
+      });
+    }
+    const load_from_alphafold = async () => {
+      const url = `https://alphafold.ebi.ac.uk/api/prediction/${isoform}`;
+      const response = await fetch(url).then((res) => res.json());
+      const [first] = response;
+      const pdb_url = first?.pdbUrl;
+      const pdb_string_raw = await fetch(pdb_url).then((res) => res.text());
+      pdb_data_raw_signal.value = pdb_string_raw;
+      pdb_data_trimmed_signal.value = pdb_string_raw;
+    };
+    return html`
+      <div className="space-y-2">
+        <h3 className=${classes.h3}>${isoform}</h3>
+        ${anchors}
+        <div>PDB IDs:</div>
+        <div className="space-y-2">${pdb_rows}</div>
+        <button className=${classes.buttonSmall} onClick=${load_from_alphafold}>
+          Load PDB from Alphafold
+        </button>
+      </div>
+    `;
+  });
+  return html`<div className="space-y-4">${cards}</div>`;
+}
+
+function IsoformsTable() {
+  const all_isoforms = all_isoforms_signal.value ?? [];
+  const sequences = sequences_signal.value ?? [];
+  const residue_matches = matching_isoforms_signal.value ?? [];
+  const gene_name_matches = filtered_isoforms_signal.value ?? [];
+  const rows = all_isoforms.map((isoform) => {
+    const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
+    const anchor = html`<${Anchor} href=${url}>${isoform}</${Anchor}>`;
+    const found_sequence = sequences.find((d) => d.isoform === isoform);
+    const found_residue = residue_matches.find((d) => d === isoform);
+    const found_gene_name = gene_name_matches.find((d) => d === isoform);
+    return html`
+      <tr>
+        <td>${anchor}</td>
+        <td className="text-center">${found_sequence ? `✅` : `-`}</td>
+        <td className="text-center">${found_residue ? `✅` : `-`}</td>
+        <td className="text-center">${found_gene_name ? `✅` : `-`}</td>
+      </tr>
+    `;
+  });
+
+  return html`
+    <style>
+      table.grid {
+        thead,
+        tbody,
+        tr {
+          display: contents;
+        }
+      }
+    </style>
+    <table className="grid grid-cols-4">
+      <thead>
+        <tr className="text-xs">
+          <th>Isoform</th>
+          <th>Got Sequence</th>
+          <th>Residue Match</th>
+          <th>Gene Name Match</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
 function Inputs() {
+  const start_processing = () => {
+    events_signal.value = [];
+    pdb_data_raw_signal.value = null;
+    pdb_data_trimmed_signal.value = null;
+    pdb_data_mutated_signal.value = null;
+
+    is_running_signal.value = true;
+    const url = new URL("/process", window.location.origin);
+    url.searchParams.append("gene_name", gene_name_signal);
+    url.searchParams.append("residue1", residue1_signal);
+    url.searchParams.append("position", position_signal);
+    url.searchParams.append("residue2", residue2_signal);
+
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (event) => {
+      console.log(event.data);
+      let parsed;
+      try {
+        parsed = JSON.parse(event.data);
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+      add_event(parsed);
+      if (parsed.type === "done") {
+        is_running_signal.value = false;
+        eventSource.close();
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource failed:", error);
+      eventSource.close();
+    };
+  };
   return html`
     <h2 className=${classes.h2}>MutantAutoMate</h2>
     <${Spacer} />
-    <button
-      className="block mb-2"
-      onClick=${() => {
-        gene_name_signal.value = "NLGN1";
-        residue1_signal.value = "D";
-        position_signal.value = 140;
-        residue2_signal.value = "Y";
-      }}
-    >
-      Example 1
-    </button>
-    <button
-      className="block mb-2"
-      onClick=${() => {
-        gene_name_signal.value = "SHANK3";
-        residue1_signal.value = "D";
-        position_signal.value = 26;
-        residue2_signal.value = "C";
-      }}
-    >
-      Example 2
-    </button>
+    <${Examples} />
     <${Spacer} />
     <div className="flex flex-col gap-y-4">
       <label>
@@ -204,11 +333,11 @@ function Inputs() {
           type="text"
           className=${classes.input}
           value=${position_signal}
-          onInput=${(e) => (position_signal.value = e.target.value)}
+          onInput=${(e) => (position_signal.value = +e.target.value)}
         />
       </label>
       <label>
-        <div>Resiude 2:</div>
+        <div>Residue 2:</div>
         <input
           type="text"
           className=${classes.input}
@@ -222,44 +351,42 @@ function Inputs() {
     <button
       className=${classes.button}
       disabled=${is_running_signal}
-      onClick=${() => {
-        events_signal.value = [];
-        is_running_signal.value = true;
-        const url = new URL("/process", window.location.origin);
-        url.searchParams.append("gene_name", gene_name_signal);
-        url.searchParams.append("residue1", residue1_signal);
-        url.searchParams.append("position", position_signal);
-        url.searchParams.append("residue2", residue2_signal);
-
-        const eventSource = new EventSource(url);
-
-        eventSource.onmessage = (event) => {
-          console.log(event.data);
-          let parsed;
-          try {
-            parsed = JSON.parse(event.data);
-          } catch (e) {
-            console.error(e);
-            return;
-          }
-          add_event(parsed);
-          if (parsed.type === "done") {
-            is_running_signal.value = false;
-            eventSource.close();
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          console.error("EventSource failed:", error);
-          eventSource.close();
-        };
-      }}
+      onClick=${start_processing}
     >
       Start
     </button>
     <${Spacer} />
     <h2>Log</h2>
     <${LogViewer} />
+  `;
+}
+
+function Examples() {
+  const examples = [
+    [`NLGN1`, `D`, 140, `Y`],
+    [`SHANK3`, `D`, 26, `Y`],
+    [`NRXN1`, `K`, 287, `E`],
+    [`CSNK1G1`, `T`, 140, `C`],
+    [`SCN2A`, `R`, 1635, `C`],
+  ];
+  const buttons = examples.map(([gene_name, residue1, position, residue2]) => {
+    return html`
+      <button
+        className=${classes.button}
+        onClick=${() => {
+          gene_name_signal.value = gene_name;
+          residue1_signal.value = residue1;
+          position_signal.value = position;
+          residue2_signal.value = residue2;
+        }}
+      >
+        ${gene_name} ${residue1}${position}
+      </button>
+    `;
+  });
+  return html`
+    <h4 className="mb-2">Examples</h4>
+    <div className="flex flex-wrap gap-4">${buttons}</div>
   `;
 }
 
@@ -281,203 +408,97 @@ function LogViewer() {
 
 function PDBViewer() {
   const viewerDivRef = useRef(null);
-  const viewersRef = useRef(null);
-  // const viewer1Ref = useRef(null);
+  const viewersGridRef = useRef(null);
   useEffect(() => {
     if (!viewerDivRef.current) {
       return;
     }
-    const viewers = $3Dmol.createViewerGrid(
-      viewerDivRef.current,
-      {
-        rows: 2,
-        cols: 1,
-        control_all: true,
-      }
-      // { backgroundColor: "lightgrey" }
-    );
-    viewersRef.current = viewers;
-    // console.log(viewers);
-    // viewerRef.current = $3Dmol.createViewer("viewer", {
-    //   defaultcolors: $3Dmol.rasmolElementColors,
-    //   lowerZoomLimit: 1,
-    //   upperZoomLimit: 500,
-    // });
-    // mutatedViewerRef.current = $3Dmol.createViewer("viewer2", {
-    //   defaultcolors: $3Dmol.rasmolElementColors,
-    //   lowerZoomLimit: 1,
-    //   upperZoomLimit: 500,
-    // });
-    // viewerRef.current.setBackgroundColor("grey");
+    viewersGridRef.current = $3Dmol.createViewerGrid(viewerDivRef.current, {
+      rows: 2,
+      cols: 1,
+      control_all: true,
+    });
   }, []);
 
   useEffect(() => {
-    if (!viewersRef.current || !pdb_viewer_signal.value) {
-      return;
-    }
-    console.log(`PDB ID: ${pdb_viewer_signal.value}`);
-    const viewers = viewersRef.current;
-    const viewer1 = viewers[0][0];
-    const viewer2 = viewers[1][0];
+    if (!viewersGridRef.current || !pdb_data_trimmed_signal.value) return;
+    const pdb_data = pdb_data_trimmed_signal.value;
+    const grid = viewersGridRef.current;
+    const viewer1 = grid[0][0];
     viewer1.clear();
-    viewer2.clear();
     (async () => {
-      const pdb_data = await fetch(
-        `https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`
-      ).then((res) => res.text());
-
       viewer1.addModel(pdb_data, "pdb");
       viewer1.setStyle({}, { cartoon: { color: "gray" } });
       viewer1.zoomTo();
       viewer1.render();
-
-      const mutated_pdb_data = await fetch(`/mutate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          pdb_string: pdb_data,
-          residue1: residue1_signal.value,
-          position: position_signal.value,
-          residue2: residue2_signal.value,
-        }),
-      }).then((res) => res.text());
-
-      if (mutated_pdb_data) {
-        viewer2.addModel(mutated_pdb_data, "pdb");
-        viewer2.setStyle({}, { cartoon: { color: "gray" } });
-        viewer2.zoomTo();
-        viewer2.render();
-      }
     })();
+  }, [pdb_data_trimmed_signal.value]);
 
-    // fetch(`https://files.rcsb.org/download/${pdb_viewer_signal.value}.pdb`)
-    //   .then((res) => res.text())
-    //   .then((pdb_data) => {
-    //     // console.log("PDB", pdb_data);
+  useEffect(() => {
+    if (!viewersGridRef.current || !pdb_data_mutated_signal.value) return;
+    const pdb_data = pdb_data_mutated_signal.value;
+    const viewers = viewersGridRef.current;
+    const viewer2 = viewers[1][0];
+    viewer2.clear();
+    (async () => {
+      viewer2.addModel(pdb_data, "pdb");
+      viewer2.setStyle({}, { cartoon: { color: "gray" } });
+      viewer2.zoomTo();
+      viewer2.render();
+    })();
+  }, [pdb_data_mutated_signal.value]);
 
-    //     viewer1.addModel(pdb_data, "pdb");
-    //     viewer1.setStyle({}, { cartoon: { color: "gray" } });
-    //     viewer1.zoomTo();
-    //     viewer1.render();
+  const zoom_to = () => {
+    const position = +(position_signal?.value ?? 0);
+    const grid = viewersGridRef.current;
+    if (!grid) return;
 
-    //     viewer2.addModel(pdb_data, "pdb");
-    //     viewer2.setStyle({}, { cartoon: { color: "gray" } });
-    //     viewer2.zoomTo();
-    //     viewer2.render();
-    //   });
-  }, [pdb_viewer_signal.value]);
+    for (const row of grid) {
+      const viewer = row[0];
+      // Style for residue in red
+      viewer.setStyle(
+        { resi: position },
+        { stick: { color: "red" }, cartoon: { color: "green", opacity: 0.5 } }
+      );
+      // Label for residue
+      viewer.addLabel(
+        position,
+        {
+          position: "center",
+          backgroundOpacity: 0.8,
+          fontSize: 12,
+          showBackground: true,
+        },
+        { resi: position }
+      );
+      // Additional styling and configurations
+      // viewer.setStyle(
+      //   { hetflag: true },
+      //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
+      // ); // Heteroatoms
+      // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
+      // Zoom and render
+      viewer.render();
+      // viewer.zoomTo({ resi: position, chain: "A" }, 500);
+      viewer.zoomTo({ resi: position }, 500);
+    }
+  };
 
   return html`
     <h2 className=${classes.h2}>PDB Viewer</h2>
     <${Spacer} />
-    <div>
-      PDB ID:
-      <span className="ml-2">${pdb_viewer_signal.value ?? `None`}</span>
-    </div>
-    <${Spacer} />
-    <${PDBViewerInput} />
-    <${Spacer} />
     <button
       className=${classes.button}
-      onClick=${() => {
-        const position = position_signal.value;
-        const residue1 = residue1_signal.value;
-        const rows = viewersRef.current;
-        // const viewer = viewer1Ref.current;
-        if (!rows) {
-          return;
-        }
-        // viewer.removeAllLabels();
-        // viewer.addResLabels({
-        //   atom: "CA",
-        //   resi: position,
-        //   chain: "A",
-        //   text: `${residue1}${position}${residue2}`,
-        //   color: "black",
-        //   fontSize: 12,
-        //   backgroundColor: "white",
-        // });
-        // const selection = {
-        //   resn: residue1,
-        //   resi: position,
-        // };
-        // viewer.setStyle(selection, { stick: { colorscheme: "greenCarbon" } });
-        // viewer.setStyle(selection, { cartoon: { color: "red" } });
-        // viewer.render();
-        // viewer.zoomTo(selection, 1e3);
-
-        for (const row of rows) {
-          const viewer = row[0];
-          // Style for residue in red
-          viewer.setStyle({ resi: position }, { cartoon: { color: "red" } });
-
-          // Label for residue
-          viewer.addLabel(
-            position,
-            {
-              // position: "center",
-              backgroundOpacity: 0.8,
-              fontSize: 12,
-              color: "red",
-              showBackground: true,
-            },
-            { resi: position }
-          );
-
-          // Additional styling and configurations
-          // viewer.setStyle(
-          //   { hetflag: true },
-          //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
-          // ); // Heteroatoms
-          // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
-
-          // Zoom and render
-          viewer.render();
-          viewer.zoomTo({ resi: residue1 }, 500);
-        }
-      }}
+      onClick=${zoom_to}
+      disabled=${!pdb_data_trimmed_signal.value}
     >
-      Zoom to: ${residue1_signal}${position_signal}
+      Zoom to Position: ${position_signal.value}
     </button>
     <${Spacer} />
     <div
       ref=${viewerDivRef}
       className="w-full h-[1000px] relative outline outline-black"
     ></div>
-  `;
-}
-
-function PDBViewerInput() {
-  const pdb_internal = useSignal("5OJ6");
-  useSignalEffect(() => {
-    if (
-      pdb_viewer_signal.value &&
-      pdb_internal.value !== pdb_viewer_signal.value
-    ) {
-      // pdb_internal.value = pdb_viewer_signal.value;
-    }
-  });
-  return html`
-    <div className="flex gap-x-4">
-      <input
-        type="text"
-        className=${classes.input}
-        id="pdb_id"
-        name="pdb_id"
-        value=${pdb_internal}
-        onInput=${(e) => (pdb_internal.value = e.target.value)}
-      />
-      <button
-        className=${classes.button}
-        onClick=${() => {
-          pdb_viewer_signal.value = pdb_internal.value;
-        }}
-      >
-        Set
-      </button>
-    </div>
   `;
 }
 
