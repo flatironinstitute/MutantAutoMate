@@ -406,6 +406,20 @@ function LogViewer() {
   </textarea>`;
 }
 
+const usePDBViewer = (pdbSignal, viewer) => {
+  useEffect(() => {
+    if (!viewer || !pdbSignal.value) return;
+    const pdb_data = pdbSignal.value;
+    viewer.clear();
+    (async () => {
+      viewer.addModel(pdb_data, "pdb");
+      viewer.setStyle({}, { cartoon: { color: "gray" } });
+      viewer.zoomTo();
+      viewer.render();
+    })();
+  }, [pdbSignal.value]);
+};
+
 function PDBViewer() {
   const viewerDivRef = useRef(null);
   const viewersGridRef = useRef(null);
@@ -420,33 +434,8 @@ function PDBViewer() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!viewersGridRef.current || !pdb_data_trimmed_signal.value) return;
-    const pdb_data = pdb_data_trimmed_signal.value;
-    const grid = viewersGridRef.current;
-    const viewer1 = grid[0][0];
-    viewer1.clear();
-    (async () => {
-      viewer1.addModel(pdb_data, "pdb");
-      viewer1.setStyle({}, { cartoon: { color: "gray" } });
-      viewer1.zoomTo();
-      viewer1.render();
-    })();
-  }, [pdb_data_trimmed_signal.value]);
-
-  useEffect(() => {
-    if (!viewersGridRef.current || !pdb_data_mutated_signal.value) return;
-    const pdb_data = pdb_data_mutated_signal.value;
-    const viewers = viewersGridRef.current;
-    const viewer2 = viewers[1][0];
-    viewer2.clear();
-    (async () => {
-      viewer2.addModel(pdb_data, "pdb");
-      viewer2.setStyle({}, { cartoon: { color: "gray" } });
-      viewer2.zoomTo();
-      viewer2.render();
-    })();
-  }, [pdb_data_mutated_signal.value]);
+  usePDBViewer(pdb_data_trimmed_signal, viewersGridRef.current?.[0][0]);
+  usePDBViewer(pdb_data_mutated_signal, viewersGridRef.current?.[1][0]);
 
   const zoom_to = () => {
     const position = +(position_signal?.value ?? 0);
