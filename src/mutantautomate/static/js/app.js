@@ -6,6 +6,7 @@ import { useRef, useEffect } from "preact/hooks";
 import {
   signal,
   computed,
+  useSignal,
   // @ts-ignore
 } from "@preact/signals";
 // @ts-ignore
@@ -34,6 +35,7 @@ const events_signal = signal([]);
 const pdb_data_raw_signal = signal(null);
 const pdb_data_trimmed_signal = signal(null);
 const pdb_data_mutated_signal = signal(null);
+const sequence_viewer_signal = signal(null);
 
 const log_signal = computed(() =>
   events_signal.value
@@ -114,26 +116,7 @@ export function App() {
       >
       </textarea>
       <${Spacer} />
-      <button
-        className=${classes.button}
-        onClick=${async () => {
-          const mutated_pdb_data = await fetch(`/mutate`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              pdb_string: pdb_data_trimmed_signal.value,
-              residue1: residue1_signal.value,
-              position: position_signal.value,
-              residue2: residue2_signal.value,
-            }),
-          }).then((res) => res.text());
-          pdb_data_mutated_signal.value = mutated_pdb_data;
-        }}
-      >
-        Mutate PDB
-      </button>
+      <${MutateButton} />
       <${Spacer} />
       <textarea
         readonly
@@ -144,8 +127,59 @@ export function App() {
       >
       </textarea>
       <${Separator} />
+      <h2 className=${classes.h2}>Sequence</h2>
+      <${Spacer} />
+      <${SequenceViewer} />
+      <${Spacer} />
+      <${Separator} />
       <${PDBViewer} />
     </div>
+  `;
+}
+
+function SequenceViewer() {
+  const value = sequence_viewer_signal.value ?? "";
+  const letters = value
+    .split("")
+    .filter((letter) => letter.match(/[A-Z]/))
+    .map((letter, index) => {
+      if (index + 1 === position_signal.value) {
+        return html`<span className="bg-yellow-200">${letter}</span>`;
+      }
+      return html`<span>${letter}</span>`;
+    });
+  return html`<div className="flex flex-wrap font-mono">${letters}</div>`;
+}
+
+function MutateButton() {
+  const is_mutating_signal = useSignal(false);
+  return html`
+    <button
+      className=${classes.button}
+      disabled=${!pdb_data_trimmed_signal.value}
+      onClick=${async () => {
+        is_mutating_signal.value = true;
+        const mutated_pdb_data = await fetch(`/mutate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pdb_string: pdb_data_trimmed_signal.value,
+            residue1: residue1_signal.value,
+            position: position_signal.value,
+            residue2: residue2_signal.value,
+          }),
+        }).then((res) => res.text());
+        is_mutating_signal.value = false;
+        pdb_data_mutated_signal.value = mutated_pdb_data;
+      }}
+    >
+      Mutate PDB
+    </button>
+    <span className="ml-4"
+      >${is_mutating_signal.value ? "Mutating..." : ""}</span
+    >
   `;
 }
 
@@ -160,6 +194,12 @@ function IsoformCards() {
     const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
     const anchors = html`${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
+    const fetch_sequence = async () => {
+      const response = await fetch(
+        `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`
+      ).then((res) => res.text());
+      sequence_viewer_signal.value = response.split("\n").slice(1).join("\n");
+    };
     let pdb_rows = html`<div className="text-gray-500 ml-[3ch]">
       No PDB IDs found
     </div>`;
@@ -171,6 +211,7 @@ function IsoformCards() {
         }
         const url = `https://www.rcsb.org/structure/${pdb_id}`;
         const fetch_pdb = async () => {
+          await fetch_sequence();
           const pdb_string_raw = await fetch(
             `https://files.rcsb.org/download/${pdb_id}.pdb`
           ).then((res) => res.text());
@@ -196,6 +237,7 @@ function IsoformCards() {
       });
     }
     const load_from_alphafold = async () => {
+      await fetch_sequence();
       const url = `https://alphafold.ebi.ac.uk/api/prediction/${isoform}`;
       const response = await fetch(url).then((res) => res.json());
       const [first] = response;
