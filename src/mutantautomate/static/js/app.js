@@ -190,13 +190,16 @@ function MutateButton() {
 function IsoformCards() {
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const cards = filtered_isoforms.map((isoform) => {
+    const uniprot_url = `https://www.uniprot.org/uniprotkb/${isoform}`;
     const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
     const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
     const fasta_url = `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`;
+    const uniprot_anchor = html`<${Anchor} href=${uniprot_url}>UniProt</${Anchor}>`;
     const text_anchor = html`<${Anchor} href=${text_url}>Text</${Anchor}>`;
     const json_anchor = html`<${Anchor} href=${json_url}>JSON</${Anchor}>`;
     const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
-    const anchors = html`${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
+    const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} |
+    ${fasta_anchor}`;
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
     const fetch_sequence = async () => {
       const response = await fetch(
@@ -271,7 +274,8 @@ function IsoformsTable() {
   const residue_matches = matching_isoforms_signal.value ?? [];
   const gene_name_matches = filtered_isoforms_signal.value ?? [];
   const rows = all_isoforms.map((isoform) => {
-    const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
+    // const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
+    const url = `https://www.uniprot.org/uniprotkb/${isoform}`;
     const anchor = html`<${Anchor} href=${url}>${isoform}</${Anchor}>`;
     const found_sequence = sequences.find((d) => d.isoform === isoform);
     const found_residue = residue_matches.find((d) => d === isoform);
