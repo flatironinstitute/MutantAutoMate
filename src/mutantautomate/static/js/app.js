@@ -198,8 +198,8 @@ function IsoformCards() {
     const text_anchor = html`<${Anchor} href=${text_url}>Text</${Anchor}>`;
     const json_anchor = html`<${Anchor} href=${json_url}>JSON</${Anchor}>`;
     const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
-    const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} |
-    ${fasta_anchor}`;
+    // prettier-ignore
+    const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
     const fetch_sequence = async () => {
       const response = await fetch(
