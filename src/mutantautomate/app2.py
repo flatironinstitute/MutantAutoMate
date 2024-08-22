@@ -26,9 +26,13 @@ def stream_data(data):
     return f"data: {json.dumps(data)}\n\n"
 
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
-    return render_template("index2.html")
+    password = request.args.get("password")
+    if password == "rebate-lemon-titanium":
+        return render_template("index2.html")
+    else:
+        return render_template("login.html")
 
 
 @app.route("/process", methods=["GET", "POST"])
