@@ -107,6 +107,8 @@ export function App() {
       >
       </textarea>
       <${Spacer} />
+      <h2 className=${classes.h2}>Trimmed PDB</h2>
+      <${Spacer} />
       <textarea
         readonly
         rows=${20}
@@ -115,6 +117,8 @@ export function App() {
         placeholder="Trimmed PDB Data"
       >
       </textarea>
+      <${Spacer} />
+      <h2 className=${classes.h2}>Mutated PDB</h2>
       <${Spacer} />
       <${MutateButton} />
       <${Spacer} />
