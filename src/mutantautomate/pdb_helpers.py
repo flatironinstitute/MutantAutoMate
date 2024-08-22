@@ -37,7 +37,7 @@ def fixer_to_string(fixer):
     return out_string
 
 
-def mutate_residue(pdb_string, position, original_residue_, new_residue_):
+def mutate_residue(pdb_string, position, original_residue_, new_residue_, chain_id="A"):
     # Convert the residue names to three-letter codes
     original_residue = amino_acid_mapping[original_residue_]
     new_residue = amino_acid_mapping[new_residue_]
@@ -47,7 +47,6 @@ def mutate_residue(pdb_string, position, original_residue_, new_residue_):
 
     # Create a mutation string based on the position and the new residue
     mutation_string = f"{original_residue}-{position}-{new_residue}"
-    chain_id = "A"
 
     fixer = pdbfixer.PDBFixer(pdbfile=pdb_file_handle)
     fixer.applyMutations([mutation_string], chain_id)
@@ -64,15 +63,10 @@ def mutate_residue(pdb_string, position, original_residue_, new_residue_):
 def trim_pdb(pdb_string, chains_to_keep):
     # Create a filehandle from the string
     pdb_file_handle = StringIO(pdb_string)
-
     fixer = pdbfixer.PDBFixer(pdbfile=pdb_file_handle)
-
     chains = fixer.topology.chains()
-
     chains_list = list(chains)
-
     print(f"Number of chains: {len(chains_list)}")
-
     chains_to_remove = []
 
     # print(list(chains), len(list(chains)))
