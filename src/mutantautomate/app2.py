@@ -69,7 +69,10 @@ def mutate_route():
     residue1 = data.get("residue1")
     position = int(data.get("position"))
     residue2 = data.get("residue2")
-    mutated = mutate_residue(pdb_string, position, residue1, residue2)
+    chain_id = data.get("chain_id")
+    if (chain_id is None) or (chain_id == ""):
+        chain_id = "A"
+    mutated = mutate_residue(pdb_string, position, residue1, residue2, chain_id)
     return mutated
 
 
