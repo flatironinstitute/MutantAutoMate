@@ -21,7 +21,7 @@ const classes = {
   h3: "text-lg font-bold",
   button:
     "bg-white text-black px-2 py-1 rounded outline outline-1 disabled:bg-gray-200 disabled:text-gray-400",
-  buttonSmall: `bg-white text-black rounded outline outline-1 disabled:bg-gray-200 disabled:text-gray-400 [padding-inline:1ch]`,
+  buttonSmall: `bg-white text-black rounded outline outline-1 whitespace-nowrap disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-50 [padding-inline:1ch]`,
   input: "block outline outline-2 outline-gray-400 p-1",
   anchor: "text-blue-700 underline text-left",
 };
@@ -36,6 +36,17 @@ const pdb_data_raw_signal = signal(null);
 const pdb_data_trimmed_signal = signal(null);
 const pdb_data_mutated_signal = signal(null);
 const sequence_viewer_signal = signal(null);
+const mutation_chain_id_signal = signal(null);
+
+const reset = () => {
+  is_running_signal.value = false;
+  events_signal.value = [];
+  pdb_data_raw_signal.value = null;
+  pdb_data_trimmed_signal.value = null;
+  pdb_data_mutated_signal.value = null;
+  sequence_viewer_signal.value = null;
+  mutation_chain_id_signal.value = null;
+};
 
 const log_signal = computed(() =>
   events_signal.value
@@ -147,12 +158,24 @@ function SequenceViewer() {
     .split("")
     .filter((letter) => letter.match(/[A-Z]/))
     .map((letter, index) => {
-      if (index + 1 === position_signal.value) {
-        return html`<span className="bg-yellow-200">${letter}</span>`;
+      let marker = null;
+      if ((index + 1) % 50 === 0) {
+        marker = html`<span
+          className="text-xs text-gray-500 absolute leading-[0] -top-[7px]"
+        >
+          ${index + 1}
+        </span>`;
       }
-      return html`<span>${letter}</span>`;
+      const bg = index + 1 === position_signal.value ? "bg-yellow-200" : "";
+      return html`<span className=${`relative block ${bg}`}>
+        ${marker}${letter}
+      </span>`;
     });
-  return html`<div className="flex flex-wrap font-mono">${letters}</div>`;
+  return html`<div
+    className="flex flex-wrap gap-y-[1.2rem] font-mono leading-none"
+  >
+    ${letters}
+  </div>`;
 }
 
 function MutateButton() {
@@ -173,6 +196,7 @@ function MutateButton() {
             residue1: residue1_signal.value,
             position: position_signal.value,
             residue2: residue2_signal.value,
+            chain_id: mutation_chain_id_signal.value,
           }),
         }).then((res) => res.text());
         is_mutating_signal.value = false;
@@ -181,13 +205,19 @@ function MutateButton() {
     >
       Mutate PDB
     </button>
-    <span className="ml-4"
-      >${is_mutating_signal.value ? "Mutating..." : ""}</span
-    >
+    <span className="ml-4">
+      ${is_mutating_signal.value ? "Mutating..." : ""}
+    </span>
+    <span className="ml-4">
+      ${mutation_chain_id_signal.value
+        ? `Chain: ${mutation_chain_id_signal.value}`
+        : ""}
+    </span>
   `;
 }
 
 function IsoformCards() {
+  const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const cards = filtered_isoforms.map((isoform) => {
     const uniprot_url = `https://www.uniprot.org/uniprotkb/${isoform}`;
@@ -213,11 +243,23 @@ function IsoformCards() {
     if (pdb_ids.length > 0) {
       pdb_rows = pdb_ids.map(([pdb_id, chains_text]) => {
         let chains = null;
+        let is_in_pdb = false;
+        let position_range = null;
         if (chains_text) {
-          chains = chains_text.split("=")[0].split("/");
+          const split = chains_text.split("=");
+          const chain_letters = split[0];
+          position_range = split[1];
+          chains = chain_letters.split("/");
+          const [position_start, position_end] = position_range.split("-");
+          is_in_pdb =
+            +position >= +position_start && +position <= +position_end;
         }
         const url = `https://www.rcsb.org/structure/${pdb_id}`;
         const fetch_pdb = async () => {
+          pdb_data_trimmed_signal.value = null;
+          pdb_data_mutated_signal.value = null;
+          // Set the mutation chain id to the first chain
+          mutation_chain_id_signal.value = chains[0];
           await fetch_sequence();
           const pdb_string_raw = await fetch(
             `https://files.rcsb.org/download/${pdb_id}.pdb`
@@ -232,13 +274,21 @@ function IsoformCards() {
           }).then((res) => res.text());
           pdb_data_trimmed_signal.value = trimmed;
         };
+        const load_button = html`<button
+          disabled=${!is_in_pdb}
+          className=${classes.buttonSmall}
+          onClick=${fetch_pdb}
+        >
+          Load PDB
+        </button>`;
+        const chains_list = chains ? chains.join(`, `) : `-`;
+        const pdb_anchor = html`<${Anchor} href=${url}>${pdb_id}</${Anchor}>`;
         return html`
           <div className="ml-[3ch] flex gap-x-2">
-            <${Anchor} href=${url}>${pdb_id}</${Anchor}>
-            <span>Chains: ${chains ? chains.join(`, `) : `-`}</span>
-            <button className=${
-              classes.buttonSmall
-            } onClick=${fetch_pdb}>Load PDB</button>
+            <span className="font-mono w-[5ch]">${pdb_anchor}</span>
+            ${load_button}
+            <span>Chains: ${chains_list}</span>
+            <span>Range: ${position_range}</span>
           </div>
         `;
       });
@@ -318,11 +368,7 @@ function IsoformsTable() {
 
 function Inputs() {
   const start_processing = () => {
-    events_signal.value = [];
-    pdb_data_raw_signal.value = null;
-    pdb_data_trimmed_signal.value = null;
-    pdb_data_mutated_signal.value = null;
-
+    reset();
     is_running_signal.value = true;
     const url = new URL("/process", window.location.origin);
     url.searchParams.append("gene_name", gene_name_signal);
@@ -412,12 +458,24 @@ function Inputs() {
 }
 
 function Examples() {
+  const others = `SLC6A1 S295, FRMPD4 E471, NRXN1 T324, NRXN1 V1214, ACTB V298`
+    .split(`,`)
+    .map((d) => d.trim())
+    .filter((d) => d.length > 0)
+    .map((string) => {
+      const [gene_name, residue] = string.split(" ");
+      const residue1 = residue[0];
+      const position = +residue.slice(1);
+      const residue2 = `C`;
+      return [gene_name, residue1, position, residue2];
+    });
   const examples = [
     [`NLGN1`, `D`, 140, `Y`],
     [`SHANK3`, `D`, 26, `Y`],
     [`NRXN1`, `K`, 287, `E`],
     [`CSNK1G1`, `T`, 140, `C`],
     [`SCN2A`, `R`, 1635, `C`],
+    ...others,
   ];
   const buttons = examples.map(([gene_name, residue1, position, residue2]) => {
     return html`
@@ -563,3 +621,4 @@ function Anchor({ children, href }) {
 }
 
 render(h(App), document.body);
+window.scrollTo(0, 0);
