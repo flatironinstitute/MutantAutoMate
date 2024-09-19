@@ -186,17 +186,16 @@ function MutateButton() {
       disabled=${!pdb_data_trimmed_signal.value}
       onClick=${async () => {
         is_mutating_signal.value = true;
-        const mutated_pdb_data = await fetch(`/mutate`, {
+        const mutated_pdb_data = await fetch(`/mutate2`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             pdb_string: pdb_data_trimmed_signal.value,
-            residue1: residue1_signal.value,
-            position: position_signal.value,
-            residue2: residue2_signal.value,
             chain_id: mutation_chain_id_signal.value,
+            position: position_signal.value,
+            to_residue: residue2_signal.value,
           }),
         }).then((res) => res.text());
         is_mutating_signal.value = false;
