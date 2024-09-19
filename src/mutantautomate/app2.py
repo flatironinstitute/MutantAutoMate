@@ -17,7 +17,7 @@ from requests.adapters import HTTPAdapter, Retry
 
 # Import process from process.py
 from process import process
-from pdb_helpers import mutate_residue, trim_pdb
+from pdb_helpers import mutate_residue, mutate_residue_2, trim_pdb
 
 app = Flask(__name__)
 
@@ -61,6 +61,15 @@ def process_route():
 
     return Response(stream_with_context(generate()), content_type="text/event-stream")
 
+@app.route("/mutate2", methods=["POST"])
+def mutate_route_2():
+    data = request.get_json()  # Get JSON payload
+    pdb_string = data.get("pdb_string")
+    chain_id = data.get("chain_id", "A") or "A"
+    position = int(data.get("position"))
+    to_residue = data.get("to_residue")
+    mutated = mutate_residue_2(pdb_string, chain_id, position, to_residue)
+    return mutated
 
 @app.route("/mutate", methods=["POST"])
 def mutate_route():

@@ -1,7 +1,10 @@
 from Bio import PDB
+from Bio.PDB import PDBParser
+from Bio.PDB.PDBIO import PDBIO
 from io import StringIO
 import pdbfixer
 from openmm.app import PDBFile
+from pymut import mutate
 
 # Convert one-letter code to three-letter code
 amino_acid_mapping = {
@@ -26,6 +29,24 @@ amino_acid_mapping = {
     "Y": "TYR",
     "V": "VAL",
 }
+
+def mutate_residue_2(pdb_string, chain_id, position, to_residue_one_letter):
+    input_handle = StringIO(pdb_string)
+    parser = PDBParser(QUIET=1)
+    structure = parser.get_structure("my_structure", input_handle)
+    # Mutate the structure
+    to_residue_three_letter = amino_acid_mapping[to_residue_one_letter]
+    mutate(structure, chain_id, position, to_residue_three_letter)
+    # Create a PDBIO object
+    io = PDBIO()
+    io.set_structure(structure)
+    # Save the structure to the StringIO object
+    output_handle = StringIO()
+    io.save(output_handle)
+    # Retrieve the PDB string from the StringIO object
+    output_pdb_string = output_handle.getvalue()
+    # Return the PDB string
+    return output_pdb_string
 
 
 def fixer_to_string(fixer):
@@ -85,3 +106,14 @@ def trim_pdb(pdb_string, chains_to_keep):
     out_string = fixer_to_string(fixer)
 
     return out_string
+
+
+# def mutate_residue_2(pdb_string):
+#     output_file_handle = StringIO(pdb_string)
+#     parser = PDBParser(QUIET=1)
+#     structure = parser.get_structure("my_structure", output_file_handle)
+#     # structure = parser.get_structure("my_structure", "5e0m.pdb")
+#     # mutate(structure, 'A', 140, 'TYR', mutation_type='first')
+#     mutate(structure, 'A', 140, 'TYR')
+#     # all_atoms = list(structure.get_atoms())
+#     return "haha"
