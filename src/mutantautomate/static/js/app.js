@@ -37,6 +37,7 @@ const pdb_data_trimmed_signal = signal(null);
 const pdb_data_mutated_signal = signal(null);
 const sequence_viewer_signal = signal(null);
 const mutation_chain_id_signal = signal(null);
+const loading_mutated_signal = signal(false);
 
 const reset = () => {
   is_running_signal.value = false;
@@ -46,6 +47,7 @@ const reset = () => {
   pdb_data_mutated_signal.value = null;
   sequence_viewer_signal.value = null;
   mutation_chain_id_signal.value = null;
+  loading_mutated_signal.value = false;
 };
 
 const log_signal = computed(() =>
@@ -87,67 +89,86 @@ const add_event = (event) => {
 export function App() {
   return html`
     <div
-      className="mt-10 max-w-[min(700px,90vw)] ms-auto me-auto bg-white rounded rounded-2xl p-10"
+      className="mt-10 max-w-[min(1500px,90vw)] ms-auto me-auto bg-white rounded rounded-2xl p-10 gap-4 flex flex-col md:grid md:text-[0.7rem] md:grid-cols-3"
     >
-      <${Inputs} />
-      <${Separator} />
-      <h2 className=${classes.h2}>Charge Statement</h2>
-      <${Spacer} />
-      <div>${charge_statement_signal?.value?.charge_statement}</div>
-      <${Separator} />
-      <h2 className=${classes.h2}>Grantham Score</h2>
-      <${Spacer} />
-      <div>${grantham_score_signal?.value?.grantham_statement}</div>
-      <${Separator} />
-      <h2 className=${classes.h2}>All Isoforms</h2>
-      <${Spacer} />
-      <${IsoformsTable} />
-      <${Separator} />
-      <h2 className=${classes.h2}>Filtered Isoforms</h2>
-      <${Spacer} />
-      <${IsoformCards} />
-      <${Separator} />
-      <h2 className=${classes.h2}>PDB Data</h2>
-      <${Spacer} />
-      <textarea
-        readonly
-        rows=${20}
-        className="p-2 outline outline-black w-full font-mono text-xs"
-        children=${pdb_data_raw_signal}
-        placeholder="Raw PDB Data"
-      >
-      </textarea>
-      <${Spacer} />
-      <h2 className=${classes.h2}>Trimmed PDB</h2>
-      <${Spacer} />
-      <textarea
-        readonly
-        rows=${20}
-        className="p-2 outline outline-black w-full font-mono text-xs"
-        children=${pdb_data_trimmed_signal}
-        placeholder="Trimmed PDB Data"
-      >
-      </textarea>
-      <${Spacer} />
-      <h2 className=${classes.h2}>Mutated PDB</h2>
-      <${Spacer} />
-      <${MutateButton} />
-      <${Spacer} />
-      <textarea
-        readonly
-        rows=${20}
-        className="p-2 outline outline-black w-full font-mono text-xs"
-        children=${pdb_data_mutated_signal}
-        placeholder="Mutated PDB Data"
-      >
-      </textarea>
-      <${Separator} />
-      <h2 className=${classes.h2}>Sequence</h2>
-      <${Spacer} />
-      <${SequenceViewer} />
-      <${Spacer} />
-      <${Separator} />
-      <${PDBViewer} />
+      <h2 className=${classes.h2 + ` col-span-3`}>MutantAutoMate</h2>
+      <div>
+        <${Inputs} />
+      </div>
+      <div>
+        <${Examples} />
+      </div>
+      <div className="space-y-4">
+        <div>
+          <h2 className=${classes.h2}>Charge Statement</h2>
+          <${Spacer} />
+          <div>${charge_statement_signal?.value?.charge_statement}</div>
+        </div>
+        <div>
+          <h2 className=${classes.h2}>Grantham Score</h2>
+          <${Spacer} />
+          <div>${grantham_score_signal?.value?.grantham_statement}</div>
+        </div>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>All Isoforms</h2>
+        <${Spacer} />
+        <${IsoformsTable} />
+      </div>
+      <div className="col-span-2">
+        <h2 className=${classes.h2}>Filtered Isoforms</h2>
+        <${Spacer} />
+        <${IsoformCards} />
+      </div>
+      <div className="col-span-3">
+        <h2 className=${classes.h2}>Sequence</h2>
+        <${Spacer} />
+        <${SequenceViewer} />
+      </div>
+      <div className="col-span-3">
+        <${PDBViewer} />
+      </div>
+      <div>
+        <h2 className=${classes.h2}>PDB Data</h2>
+        <${Spacer} />
+        <textarea
+          readonly
+          rows=${20}
+          className="p-2 outline outline-black w-full font-mono text-xs"
+          children=${pdb_data_raw_signal}
+          placeholder="Raw PDB Data"
+        >
+        </textarea>
+        <${Spacer} />
+        <h2 className=${classes.h2}>Trimmed PDB</h2>
+        <${Spacer} />
+        <textarea
+          readonly
+          rows=${20}
+          className="p-2 outline outline-black w-full font-mono text-xs"
+          children=${pdb_data_trimmed_signal}
+          placeholder="Trimmed PDB Data"
+        >
+        </textarea>
+        <${Spacer} />
+        <h2 className=${classes.h2}>Mutated PDB</h2>
+        <${Spacer} />
+        <${MutateButton} />
+        <${Spacer} />
+        <textarea
+          readonly
+          rows=${20}
+          className="p-2 outline outline-black w-full font-mono text-xs"
+          children=${pdb_data_mutated_signal}
+          placeholder="Mutated PDB Data"
+        >
+        </textarea>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>Log</h2>
+        <${Spacer} />
+        <${LogViewer} />
+      </div>
     </div>
   `;
 }
@@ -178,6 +199,24 @@ function SequenceViewer() {
   </div>`;
 }
 
+async function getMutated() {
+  loading_mutated_signal.value = true;
+  const mutated_pdb_data = await fetch(`/mutate2`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pdb_string: pdb_data_trimmed_signal.value,
+      chain_id: mutation_chain_id_signal.value,
+      position: position_signal.value,
+      to_residue: residue2_signal.value,
+    }),
+  }).then((res) => res.text());
+  pdb_data_mutated_signal.value = mutated_pdb_data;
+  loading_mutated_signal.value = false;
+}
+
 function MutateButton() {
   const is_mutating_signal = useSignal(false);
   return html`
@@ -186,20 +225,8 @@ function MutateButton() {
       disabled=${!pdb_data_trimmed_signal.value}
       onClick=${async () => {
         is_mutating_signal.value = true;
-        const mutated_pdb_data = await fetch(`/mutate2`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            pdb_string: pdb_data_trimmed_signal.value,
-            chain_id: mutation_chain_id_signal.value,
-            position: position_signal.value,
-            to_residue: residue2_signal.value,
-          }),
-        }).then((res) => res.text());
+        await getMutated();
         is_mutating_signal.value = false;
-        pdb_data_mutated_signal.value = mutated_pdb_data;
       }}
     >
       Mutate PDB
@@ -255,6 +282,7 @@ function IsoformCards() {
         }
         const url = `https://www.rcsb.org/structure/${pdb_id}`;
         const fetch_pdb = async () => {
+          pdb_data_raw_signal.value = null;
           pdb_data_trimmed_signal.value = null;
           pdb_data_mutated_signal.value = null;
           // Set the mutation chain id to the first chain
@@ -272,6 +300,7 @@ function IsoformCards() {
             body: JSON.stringify({ pdb_data: pdb_string_raw, chains }),
           }).then((res) => res.text());
           pdb_data_trimmed_signal.value = trimmed;
+          await getMutated();
         };
         const load_button = html`<button
           disabled=${!is_in_pdb}
@@ -301,6 +330,7 @@ function IsoformCards() {
       const pdb_string_raw = await fetch(pdb_url).then((res) => res.text());
       pdb_data_raw_signal.value = pdb_string_raw;
       pdb_data_trimmed_signal.value = pdb_string_raw;
+      await getMutated();
     };
     return html`
       <div className="space-y-2">
@@ -399,10 +429,6 @@ function Inputs() {
     };
   };
   return html`
-    <h2 className=${classes.h2}>MutantAutoMate</h2>
-    <${Spacer} />
-    <${Examples} />
-    <${Spacer} />
     <div className="flex flex-col gap-y-4">
       <label>
         <div>Gene Name:</div>
@@ -440,19 +466,14 @@ function Inputs() {
           onInput=${(e) => (residue2_signal.value = e.target.value)}
         />
       </label>
+      <button
+        className=${classes.button + " w-[20ch]"}
+        disabled=${is_running_signal}
+        onClick=${start_processing}
+      >
+        Start
+      </button>
     </div>
-
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      disabled=${is_running_signal}
-      onClick=${start_processing}
-    >
-      Start
-    </button>
-    <${Spacer} />
-    <h2>Log</h2>
-    <${LogViewer} />
   `;
 }
 
@@ -535,14 +556,14 @@ function PDBViewer() {
       return;
     }
     viewersGridRef.current = $3Dmol.createViewerGrid(viewerDivRef.current, {
-      rows: 2,
-      cols: 1,
+      rows: 1,
+      cols: 2,
       control_all: true,
     });
   }, []);
 
   usePDBViewer(pdb_data_trimmed_signal, viewersGridRef.current?.[0][0]);
-  usePDBViewer(pdb_data_mutated_signal, viewersGridRef.current?.[1][0]);
+  usePDBViewer(pdb_data_mutated_signal, viewersGridRef.current?.[0][1]);
 
   const zoom_to = () => {
     const position = +(position_signal?.value ?? 0);
@@ -550,35 +571,40 @@ function PDBViewer() {
     if (!grid) return;
 
     for (const row of grid) {
-      const viewer = row[0];
-      // Style for residue in red
-      viewer.setStyle(
-        { resi: position },
-        { stick: { color: "red" }, cartoon: { color: "green", opacity: 0.5 } }
-      );
-      // Label for residue
-      viewer.addLabel(
-        position,
-        {
-          position: "center",
-          backgroundOpacity: 0.8,
-          fontSize: 12,
-          showBackground: true,
-        },
-        { resi: position }
-      );
-      // Additional styling and configurations
-      // viewer.setStyle(
-      //   { hetflag: true },
-      //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
-      // ); // Heteroatoms
-      // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
-      // Zoom and render
-      viewer.render();
-      // viewer.zoomTo({ resi: position, chain: "A" }, 500);
-      viewer.zoomTo({ resi: position }, 500);
+      for (const viewer of row) {
+        // Style for residue in red
+        viewer.setStyle(
+          { resi: position },
+          { stick: { color: "red" }, cartoon: { color: "green", opacity: 0.5 } }
+        );
+        // Label for residue
+        viewer.addLabel(
+          position,
+          {
+            position: "center",
+            backgroundOpacity: 0.8,
+            fontSize: 12,
+            showBackground: true,
+          },
+          { resi: position }
+        );
+        // Additional styling and configurations
+        // viewer.setStyle(
+        //   { hetflag: true },
+        //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
+        // ); // Heteroatoms
+        // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
+        // Zoom and render
+        viewer.render();
+        // viewer.zoomTo({ resi: position, chain: "A" }, 500);
+        viewer.zoomTo({ resi: position }, 500);
+      }
     }
   };
+
+  const loading_text = loading_mutated_signal.value
+    ? "Loading mutated PDB..."
+    : "";
 
   return html`
     <h2 className=${classes.h2}>PDB Viewer</h2>
@@ -590,10 +616,11 @@ function PDBViewer() {
     >
       Zoom to Position: ${position_signal.value}
     </button>
+    <div className="inline-block ml-4 text-lg">${loading_text}</div>
     <${Spacer} />
     <div
       ref=${viewerDivRef}
-      className="w-full h-[1000px] relative outline outline-black"
+      className="w-full h-[400px] relative outline outline-black"
     ></div>
   `;
 }
