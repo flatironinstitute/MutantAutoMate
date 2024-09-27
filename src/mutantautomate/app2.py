@@ -1,116 +1,94 @@
-from flask import Flask, render_template
+import json
+import re
+import time
+import os
+import ast
+import logging
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    Response,
+    stream_with_context,
+)
+import requests
+from requests.adapters import HTTPAdapter, Retry
+
+# Import process from process.py
+from process import process
+from pdb_helpers import mutate_residue, mutate_residue_2, trim_pdb
 
 app = Flask(__name__)
 
 
-@app.route("/")
+def stream_data(data):
+    return f"data: {json.dumps(data)}\n\n"
+
+
+@app.route("/", methods=["GET", "POST"])
 def index():
-    return render_template("index2.html")
-
-
-@app.route("/grantham", methods=["GET"])
-def grantham():
-    from flask import request, jsonify
-    import os
-    import ast
-
-    # Define the dictionary of amino acid names
-    amino_acids = {
-        "A": "Alanine",
-        "C": "Cysteine",
-        "D": "Aspartic Acid",
-        "E": "Glutamic Acid",
-        "F": "Phenylalanine",
-        "G": "Glycine",
-        "H": "Histidine",
-        "I": "Isoleucine",
-        "K": "Lysine",
-        "L": "Leucine",
-        "M": "Methionine",
-        "N": "Asparagine",
-        "P": "Proline",
-        "Q": "Glutamine",
-        "R": "Arginine",
-        "S": "Serine",
-        "T": "Threonine",
-        "V": "Valine",
-        "W": "Tryptophan",
-        "Y": "Tyrosine",
-    }
-
-    error = None
-
-    # Get values of "amino_acid_1" and "amino_acid_2" from the query string
-    amino_acid_1 = request.args.get("amino_acid_1")
-    amino_acid_2 = request.args.get("amino_acid_2")
-
-    # Get the path of the current file's directory
-    current_directory = os.path.dirname(__file__)
-    # Get the path of "grantham_output.txt" in the current directory
-    grantham_output_path = os.path.join(current_directory, "grantham_output.txt")
-    # Load the Grantham dictionary from the output file
-    with open(grantham_output_path, "r") as f:
-        grantham_dict = ast.literal_eval(f.read())
-
-    print("grantham dict", grantham_dict)
-
-    # Calculate the Grantham score
-    grantham_score = None
-    grantham_key = (amino_acid_1, amino_acid_2)
-    if grantham_key in grantham_dict:
-        grantham_score = grantham_dict[grantham_key]
+    password = request.args.get("password")
+    if password == "rebate-lemon-titanium":
+        return render_template("index2.html")
     else:
-        error = f"Grantham score not found for {amino_acid_1} and {amino_acid_2}"
+        return render_template("login.html")
 
-    threshold = 100  # Define the threshold value for high Grantham score
 
-    grantham_output = None
-    grantham_output_extra = None
+@app.route("/process", methods=["GET", "POST"])
+def process_route():
+    gene_name = request.args.get("gene_name")
+    residue1 = request.args.get("residue1")
+    position = int(request.args.get("position"))
+    residue2 = request.args.get("residue2")
 
-    if grantham_score is not None:
-        grantham_output = f"The Grantham score between {amino_acids.get(amino_acid_1)} and {amino_acids.get(amino_acid_2)} is {grantham_score}"
+    # Validate input
+    if not gene_name:
+        return "Gene name is required", 400
+    if not residue1:
+        return "Residue 1 is required", 400
+    if not position:
+        return "Position is required", 400
+    if not residue2:
+        return "Residue 2 is required", 400
 
-        if grantham_score > threshold:
-            print(
-                "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-            )
-            grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-        else:
-            grantham_output_extra = "Not a potentially high score."
+    def generate():
+        yield stream_data({"message": "Processing request."})
+        for data in process(gene_name, residue1, position, residue2):
+            print(data)
+            yield stream_data(data)
+        yield stream_data({"type": "done", "message": "Done processing."})
 
-    # Return the values as JSON
-    return jsonify(
-        {
-            "amino_acid_1": amino_acid_1,
-            "amino_acid_2": amino_acid_2,
-            "grantham_score": grantham_score,
-            "grantham_output": grantham_output,
-            "grantham_output_extra": grantham_output_extra,
-            "error": error,
-        }
-    )
+    return Response(stream_with_context(generate()), content_type="text/event-stream")
 
-    # threshold = 100  # Define the threshold value for high Grantham score
+@app.route("/mutate2", methods=["POST"])
+def mutate_route_2():
+    data = request.get_json()  # Get JSON payload
+    pdb_string = data.get("pdb_string")
+    chain_id = data.get("chain_id", "A") or "A"
+    position = int(data.get("position"))
+    to_residue = data.get("to_residue")
+    mutated = mutate_residue_2(pdb_string, chain_id, position, to_residue)
+    return mutated
 
-    # if score is not None:
-    #     print(
-    #         f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}"
-    #     )
-    #     grantham_score = score
-    #     grantham_output = f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {score}"
+@app.route("/mutate", methods=["POST"])
+def mutate_route():
+    data = request.get_json()  # Get JSON payload
+    pdb_string = data.get("pdb_string")
+    residue1 = data.get("residue1")
+    position = int(data.get("position"))
+    residue2 = data.get("residue2")
+    chain_id = data.get("chain_id")
+    if (chain_id is None) or (chain_id == ""):
+        chain_id = "A"
+    mutated = mutate_residue(pdb_string, position, residue1, residue2, chain_id)
+    return mutated
 
-    #     if score > threshold:
-    #         print(
-    #             "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-    #         )
-    #         grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
-    #     else:
-    #         grantham_output_extra = "Not a potentially high score."
-    # # Return grantham_score, grantham_output, grantham_output_extra as JSON
-    # return jsonify(
-    #     {
-    #         "grantham_score": grantham_score,
-    #         "grantham_output": grantham_output,
-    #         "grantham_output_extra": grantham_output_extra,
-    #     }
-    # )
+
+@app.route("/trim_pdb", methods=["POST"])
+def trim_pdb_route():
+    data = request.get_json()
+    pdb_data = data.get("pdb_data")
+    chains = data.get("chains")
+    pdb_string = trim_pdb(pdb_data, chains)
+    return pdb_string
