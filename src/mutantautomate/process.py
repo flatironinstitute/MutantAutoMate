@@ -55,23 +55,17 @@ amino_acids = {
 
 
 def get_grantham_score_with_statement(residue1, residue2):
-
     # Calculate the Grantham score
     grantham_score = calculate_grantham_score(residue1, residue2)
-
     threshold = 100  # Define the threshold value for high Grantham score
-
     grantham_output = f"Grantham score not available for ({residue1}, {residue2})"
     grantham_output_extra = ""
-
     if grantham_score is not None:
         grantham_output = f"The Grantham score between {amino_acids.get(residue1)} and {amino_acids.get(residue2)} is {grantham_score}."
-
         if grantham_score > threshold:
             grantham_output_extra = "This is a high Grantham score, indicating a potentially significant evolutionary distance."
         else:
             grantham_output_extra = "Not a potentially high score."
-
     # Return the values as JSON
     return {
         "grantham_score": grantham_score,
