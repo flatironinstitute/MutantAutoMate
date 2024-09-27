@@ -86,6 +86,39 @@ const add_event = (event) => {
   events_signal.value = [...events_signal.value, event];
 };
 
+function start_processing() {
+  reset();
+  is_running_signal.value = true;
+  const url = new URL("/process", window.location.origin);
+  url.searchParams.append("gene_name", gene_name_signal);
+  url.searchParams.append("residue1", residue1_signal);
+  url.searchParams.append("position", position_signal);
+  url.searchParams.append("residue2", residue2_signal);
+
+  const eventSource = new EventSource(url);
+
+  eventSource.onmessage = (event) => {
+    console.log(event.data);
+    let parsed;
+    try {
+      parsed = JSON.parse(event.data);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+    add_event(parsed);
+    if (parsed.type === "done") {
+      is_running_signal.value = false;
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error("EventSource failed:", error);
+    eventSource.close();
+  };
+}
+
 export function App() {
   return html`
     <div
@@ -323,7 +356,8 @@ function IsoformCards() {
     }
     const load_from_alphafold = async () => {
       await fetch_sequence();
-      const url = `https://alphafold.ebi.ac.uk/api/prediction/${isoform}`;
+      const fixed_isoform = isoform.split("-")[0];
+      const url = `https://alphafold.ebi.ac.uk/api/prediction/${fixed_isoform}`;
       const response = await fetch(url).then((res) => res.json());
       const [first] = response;
       const pdb_url = first?.pdbUrl;
@@ -396,38 +430,6 @@ function IsoformsTable() {
 }
 
 function Inputs() {
-  const start_processing = () => {
-    reset();
-    is_running_signal.value = true;
-    const url = new URL("/process", window.location.origin);
-    url.searchParams.append("gene_name", gene_name_signal);
-    url.searchParams.append("residue1", residue1_signal);
-    url.searchParams.append("position", position_signal);
-    url.searchParams.append("residue2", residue2_signal);
-
-    const eventSource = new EventSource(url);
-
-    eventSource.onmessage = (event) => {
-      console.log(event.data);
-      let parsed;
-      try {
-        parsed = JSON.parse(event.data);
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-      add_event(parsed);
-      if (parsed.type === "done") {
-        is_running_signal.value = false;
-        eventSource.close();
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("EventSource failed:", error);
-      eventSource.close();
-    };
-  };
   return html`
     <div className="flex flex-col gap-y-4">
       <label>
@@ -506,6 +508,7 @@ function Examples() {
           residue1_signal.value = residue1;
           position_signal.value = position;
           residue2_signal.value = residue2;
+          start_processing();
         }}
       >
         ${gene_name} ${residue1}${position}
@@ -536,7 +539,11 @@ function LogViewer() {
 
 const usePDBViewer = (pdbSignal, viewer) => {
   useEffect(() => {
-    if (!viewer || !pdbSignal.value) return;
+    if (!viewer) return;
+    if (!pdbSignal.value) {
+      viewer.clear();
+      return;
+    }
     const pdb_data = pdbSignal.value;
     viewer.clear();
     (async () => {
