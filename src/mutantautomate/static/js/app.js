@@ -234,7 +234,7 @@ function SequenceViewer() {
 
 async function getMutated() {
   loading_mutated_signal.value = true;
-  const mutated_pdb_data = await fetch(`/mutate2`, {
+  const mutated_pdb_data = await fetch(`/mutate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

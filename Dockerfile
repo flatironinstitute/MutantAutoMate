@@ -6,9 +6,6 @@ WORKDIR /usr/src/app
 # Copy Python scripts and bash script to the container
 COPY . /usr/src/app
 
-# Install pdbfixer using conda
-RUN conda install --yes -c conda-forge pdbfixer
-
 # Install build tools
 RUN apt-get update && apt-get install -y \
   build-essential \
