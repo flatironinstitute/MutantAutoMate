@@ -38,6 +38,7 @@ const pdb_data_mutated_signal = signal(null);
 const sequence_viewer_signal = signal(null);
 const mutation_chain_id_signal = signal(null);
 const loading_mutated_signal = signal(false);
+const dssp_signal = signal(null);
 
 const reset = () => {
   is_running_signal.value = false;
@@ -48,6 +49,7 @@ const reset = () => {
   sequence_viewer_signal.value = null;
   mutation_chain_id_signal.value = null;
   loading_mutated_signal.value = false;
+  dssp_signal.value = null;
 };
 
 const log_signal = computed(() =>
@@ -250,6 +252,24 @@ async function getMutated() {
   loading_mutated_signal.value = false;
 }
 
+async function getDSSP() {
+  const dssp_data = await fetch(`/dssp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pdb_string: pdb_data_trimmed_signal.value,
+    }),
+  }).then((res) => res.json());
+  for (const [frame_index, frame] of dssp_data.entries()) {
+    for (const [position, assignment] of frame.entries()) {
+      console.log("DSSP", { frame_index, position, assignment });
+    }
+  }
+  dssp_signal.value = dssp_data;
+}
+
 function MutateButton() {
   const is_mutating_signal = useSignal(false);
   return html`
@@ -333,6 +353,7 @@ function IsoformCards() {
             body: JSON.stringify({ pdb_data: pdb_string_raw, chains }),
           }).then((res) => res.text());
           pdb_data_trimmed_signal.value = trimmed;
+          await getDSSP();
           await getMutated();
         };
         const load_button = html`<button

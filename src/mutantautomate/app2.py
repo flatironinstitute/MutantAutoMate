@@ -17,7 +17,7 @@ from requests.adapters import HTTPAdapter, Retry
 
 # Import process from process.py
 from process import process
-from pdb_helpers import mutate_residue, trim_pdb
+from pdb_helpers import mutate_residue, trim_pdb, get_dssp
 
 app = Flask(__name__)
 
@@ -78,3 +78,10 @@ def trim_pdb_route():
     chains = data.get("chains")
     pdb_string = trim_pdb(pdb_data, chains)
     return pdb_string
+
+@app.route("/dssp", methods=["POST"])
+def dssp_route():
+    data = request.get_json()
+    pdb_string = data.get("pdb_string")
+    dssp_data = get_dssp(pdb_string)
+    return jsonify(dssp_data)

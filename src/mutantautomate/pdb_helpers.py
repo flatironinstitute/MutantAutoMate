@@ -3,6 +3,7 @@ from Bio import PDB
 from Bio.PDB import PDBParser
 from Bio.PDB.PDBIO import PDBIO
 from pymut import mutate
+import mdtraj
 
 # Convert one-letter code to three-letter code
 amino_acid_mapping = {
@@ -48,7 +49,6 @@ def mutate_residue(pdb_string, chain_id, position, to_residue_one_letter):
 
 
 def trim_pdb(pdb_string, chains_to_keep):
-
     output_file_handle = StringIO(pdb_string)
     parser = PDBParser(QUIET=1)
     structure = parser.get_structure("my_structure", output_file_handle)
@@ -69,3 +69,17 @@ def trim_pdb(pdb_string, chains_to_keep):
     out_string = output_handle.getvalue()
     
     return out_string
+
+def get_dssp(pdb_string):
+    # Create a temporary file to store the PDB content
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".pdb", delete=True) as temp_pdb_file:
+        temp_pdb_file.write(pdb_string.encode())
+        temp_pdb_file.flush()
+        # Load the trajectory from the temporary file
+        traj = mdtraj.load(temp_pdb_file.name)
+        dssp = mdtraj.compute_dssp(traj)
+        print(dssp)
+        # Convert ndarray to list
+        dssp_list = dssp.tolist()
+        return dssp_list
