@@ -320,7 +320,7 @@ function IsoformCards() {
       No PDB IDs found
     </div>`;
     if (pdb_ids.length > 0) {
-      pdb_rows = pdb_ids.map(([pdb_id, chains_text]) => {
+      pdb_rows = pdb_ids.map(([pdb_id, chains_text, resolution_text]) => {
         let chains = null;
         let is_in_pdb = false;
         let position_range = null;
@@ -371,6 +371,7 @@ function IsoformCards() {
             ${load_button}
             <span>Chains: ${chains_list}</span>
             <span>Range: ${position_range}</span>
+            <span>Resolution: ${resolution_text}</span>
           </div>
         `;
       });

@@ -323,12 +323,14 @@ def process(gene_name, residue1, position, residue2):
             if reference["database"] == "PDB":
                 pdb_id = reference["id"]
                 chains_specifier = None
+                resolution = None
                 if "properties" in reference:
                     for prop in reference["properties"]:
                         if prop["key"] == "Chains":
                             chains_specifier = prop["value"]
-                            break
-                pdb_ids[isoform].append([pdb_id, chains_specifier])
+                        if prop["key"] == "Resolution":
+                            resolution = prop["value"]
+                pdb_ids[isoform].append([pdb_id, chains_specifier, resolution])
     yield {"type": "pdb_ids", "pdb_ids": pdb_ids}
 
 
