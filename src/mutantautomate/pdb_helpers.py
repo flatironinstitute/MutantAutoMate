@@ -79,7 +79,6 @@ def get_dssp(pdb_string):
         # Load the trajectory from the temporary file
         traj = mdtraj.load(temp_pdb_file.name)
         dssp = mdtraj.compute_dssp(traj)
-        print(dssp)
         # Convert ndarray to list
         dssp_list = dssp.tolist()
         return dssp_list
