@@ -27,6 +27,9 @@ const classes = {
   anchor: "text-blue-700 underline text-left",
 };
 
+// HMM This is not great
+let READY_TO_FETCH = false;
+
 const gene_name_signal = signal("NLGN1");
 const residue1_signal = signal("D");
 const position_signal = signal(140);
@@ -43,6 +46,7 @@ const loading_mutated_signal = signal(false);
 const dssp_signal = signal(null);
 
 const reset = () => {
+  READY_TO_FETCH = false;
   is_running_signal.value = false;
   events_signal.value = [];
   selected_isoform_and_pdb_signal.value = null;
@@ -80,12 +84,113 @@ const filtered_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.filtered_isoforms)
     ?.filtered_isoforms;
 });
+const received_pdb_ids_signal = computed(() => {
+  const got_them = events_signal.value.find((e) => e.type === "pdb_ids")
+    ? true
+    : false;
+
+  if (got_them) READY_TO_FETCH = true;
+  return got_them;
+});
 const pdb_ids_signal = computed(() => {
-  return events_signal.value.find((e) => e.pdb_ids)?.pdb_ids;
+  const pdb_ids = events_signal.value.find((e) => e.pdb_ids)?.pdb_ids;
+  return pdb_ids;
 });
 const sequences_signal = computed(() => {
   return events_signal?.value?.filter((d) => d.type === "sequence") ?? [];
 });
+
+async function fetchSequence(isoform) {
+  console.log(`Fetching sequence for ${isoform}`);
+  const response = await fetch(
+    `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`
+  ).then((res) => res.text());
+  sequence_viewer_signal.value = response.split("\n").slice(1).join("\n");
+}
+
+async function getMutated() {
+  loading_mutated_signal.value = true;
+  const mutated_pdb_data = await fetch(`/mutate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pdb_string: pdb_data_trimmed_signal.value,
+      chain_id: mutation_chain_id_signal.value,
+      position: position_signal.value,
+      to_residue: residue2_signal.value,
+    }),
+  }).then((res) => res.text());
+  pdb_data_mutated_signal.value = mutated_pdb_data;
+  loading_mutated_signal.value = false;
+}
+
+async function getDSSP() {
+  const dssp_data = await fetch(`/dssp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pdb_string: pdb_data_trimmed_signal.value,
+    }),
+  }).then((res) => res.json());
+  dssp_signal.value = dssp_data;
+}
+
+async function fetchPDB(config) {
+  console.log(`Fetching PDB:`, config);
+  const { isoform, pdb_id, chains } = config;
+  if (!pdb_id) return;
+  pdb_data_raw_signal.value = null;
+  pdb_data_trimmed_signal.value = null;
+  pdb_data_mutated_signal.value = null;
+  // Set the mutation chain id to the first chain
+  mutation_chain_id_signal.value = chains[0];
+  await fetchSequence(isoform);
+  const pdb_string_raw = await fetch(
+    `https://files.rcsb.org/download/${pdb_id}.pdb`
+  ).then((res) => res.text());
+  pdb_data_raw_signal.value = pdb_string_raw;
+  // NOTE: Just trim to the first chain
+  const trim_to_chain = chains?.[0];
+  if (!trim_to_chain) {
+    throw new Error(`No chains found for ${isoform}`);
+    return;
+  }
+  console.log(`Trimming PDB to chain: ${trim_to_chain}`);
+  const trimmed = await fetch(`/trim_pdb`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ pdb_data: pdb_string_raw, chains: [trim_to_chain] }),
+  }).then((res) => res.text());
+  pdb_data_trimmed_signal.value = trimmed;
+  await getDSSP();
+  await getMutated();
+}
+
+async function fetchPDBFromAlphaFold(isoform) {
+  console.log(`Fetching from AlphaFold: ${isoform}`);
+  if (!isoform) return;
+  pdb_data_raw_signal.value = null;
+  pdb_data_trimmed_signal.value = null;
+  pdb_data_mutated_signal.value = null;
+  await fetchSequence(isoform);
+  const fixed_isoform = isoform.split("-")[0];
+  const url = `https://alphafold.ebi.ac.uk/api/prediction/${fixed_isoform}`;
+  const response = await fetch(url).then((res) => res.json());
+  const [first] = response;
+  const pdb_url = first?.pdbUrl;
+  const pdb_string_raw = await fetch(pdb_url).then((res) => res.text());
+  pdb_data_raw_signal.value = pdb_string_raw;
+  // We do not need to trim
+  pdb_data_trimmed_signal.value = pdb_string_raw;
+  await getDSSP();
+  await getMutated();
+}
 
 effect(function autoSelectPDB() {
   const position = position_signal.value;
@@ -93,12 +198,13 @@ effect(function autoSelectPDB() {
   const all_pdb_ids = pdb_ids_signal.value ?? {};
 
   if (filtered_isoforms.length === 0) return;
+  if (!received_pdb_ids_signal.value) return;
 
   const first_isoform = filtered_isoforms[0];
 
   const first_isoform_pdb_ids = all_pdb_ids[first_isoform] ?? [];
 
-  console.log("GOT FILTERED ISOFORMS", {
+  console.log("Got Filtered Isoforms", {
     filtered_isoforms,
     all_pdb_ids,
     first_isoform_pdb_ids,
@@ -133,6 +239,11 @@ effect(function autoSelectPDB() {
 
   if (valid_pdbs.length === 0) {
     // Fetch from AlphaFold
+    found_pdb = {
+      pdb_id: `alphafold`,
+      chains: null,
+      resolution: NaN,
+    };
   } else {
     // Get the highest resolution PDB
     let highest_resolution = Infinity;
@@ -144,10 +255,16 @@ effect(function autoSelectPDB() {
     }
   }
 
-  selected_isoform_and_pdb_signal.value = {
-    isoform: first_isoform,
-    ...found_pdb,
-  };
+  if (!found_pdb) return;
+  if (!READY_TO_FETCH) return;
+
+  const { pdb_id, chains } = found_pdb;
+  const received_pdb_ids = received_pdb_ids_signal.value;
+  if (pdb_id === `alphafold` && received_pdb_ids) {
+    fetchPDBFromAlphaFold(first_isoform);
+  } else {
+    fetchPDB({ isoform: first_isoform, pdb_id, chains });
+  }
 });
 
 const add_event = (event) => {
@@ -273,16 +390,158 @@ function Inputs() {
   `;
 }
 
+const usePDBViewer = (pdbSignal, viewer) => {
+  useEffect(() => {
+    if (!viewer) return;
+    if (!pdbSignal.value) {
+      viewer.clear();
+      return;
+    }
+    const pdb_data = pdbSignal.value;
+    viewer.clear();
+    (async () => {
+      viewer.addModel(pdb_data, "pdb");
+      viewer.setStyle({}, { cartoon: { color: "gray" } });
+      viewer.zoomTo();
+      viewer.render();
+    })();
+  }, [pdbSignal.value]);
+};
+
 function PDBViewer() {
-  return html`<div>pdb viewer</div>`;
+  const viewerDivRef = useRef(null);
+  const viewersGridRef = useRef(null);
+  useEffect(() => {
+    if (!viewerDivRef.current) {
+      return;
+    }
+    viewersGridRef.current = $3Dmol.createViewerGrid(viewerDivRef.current, {
+      rows: 1,
+      cols: 2,
+      control_all: true,
+    });
+  }, []);
+
+  usePDBViewer(pdb_data_trimmed_signal, viewersGridRef.current?.[0][0]);
+  usePDBViewer(pdb_data_mutated_signal, viewersGridRef.current?.[0][1]);
+
+  const zoom_to = () => {
+    const position = +(position_signal?.value ?? 0);
+    const grid = viewersGridRef.current;
+    if (!grid) return;
+
+    for (const row of grid) {
+      for (const viewer of row) {
+        // Style for residue in red
+        viewer.setStyle(
+          { resi: position },
+          { stick: { color: "red" }, cartoon: { color: "green", opacity: 0.5 } }
+        );
+        // Label for residue
+        viewer.addLabel(
+          position,
+          {
+            position: "center",
+            backgroundOpacity: 0.8,
+            fontSize: 12,
+            showBackground: true,
+          },
+          { resi: position }
+        );
+        // Additional styling and configurations
+        // viewer.setStyle(
+        //   { hetflag: true },
+        //   { stick: { colorscheme: "greenCarbon", radius: 0.25 } }
+        // ); // Heteroatoms
+        // viewer.setStyle({ bonds: 0 }, { sphere: { radius: 0.5 } }); // Water molecules
+        // Zoom and render
+        viewer.render();
+        // viewer.zoomTo({ resi: position, chain: "A" }, 500);
+        viewer.zoomTo({ resi: position }, 500);
+      }
+    }
+  };
+
+  const loading_text = loading_mutated_signal.value
+    ? "Loading mutated PDB..."
+    : "";
+
+  return html`
+    <h2 className=${classes.h2}>PDB Viewer</h2>
+    <${Spacer} />
+    <button
+      className=${classes.button}
+      onClick=${zoom_to}
+      disabled=${!pdb_data_trimmed_signal.value}
+    >
+      Zoom to Position: ${position_signal.value}
+    </button>
+    <div className="inline-block ml-4 text-lg">${loading_text}</div>
+    <${Spacer} />
+    <div
+      ref=${viewerDivRef}
+      className="w-full h-[400px] relative outline outline-black"
+    ></div>
+  `;
 }
 
 function SequenceViewer() {
-  return html`<div>sequence viewer</div>`;
+  const value = sequence_viewer_signal.value ?? "";
+  console.log("SequenceViewer", { value });
+  const letters = value
+    .split("")
+    .filter((letter) => letter.match(/[A-Z]/))
+    .map((letter, index) => {
+      let marker = null;
+      if ((index + 1) % 50 === 0) {
+        marker = html`<span
+          className="text-xs text-gray-500 absolute leading-[0] -top-[7px]"
+        >
+          ${index + 1}
+        </span>`;
+      }
+      const bg = index + 1 === position_signal.value ? "bg-yellow-200" : "";
+      return html`<span className=${`relative block ${bg}`}>
+        ${marker}${letter}
+      </span>`;
+    });
+  return html`<div
+    className="flex flex-wrap gap-y-[1.2rem] font-mono leading-none"
+  >
+    ${letters}
+  </div>`;
 }
 
 function TextBoxes() {
-  return html`<div>text boxes</div>`;
+  const selected_position = position_signal.value;
+  const dssp_data = dssp_signal.value ?? [];
+  const dssp_description_string = [];
+  for (const [frame_index, frame] of dssp_data.entries()) {
+    for (const [position, assignment] of frame.entries()) {
+      if (position === selected_position) {
+        dssp_description_string.push(`Frame ${frame_index}: ${assignment}`);
+      }
+    }
+  }
+  return html`
+    <div className="grid grid-cols-3 gap-4">
+      <div>
+        <h2 className=${classes.h2}>Charge Statement</h2>
+        <${Spacer} />
+        <div>${charge_statement_signal?.value?.charge_statement}</div>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>Grantham Score</h2>
+        <${Spacer} />
+        <div>${grantham_score_signal?.value?.grantham_statement}</div>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>DSSP</h2>
+        <${Spacer} />
+        <div>${dssp_description_string.map((d) => html`<div>${d}</div>`)}</div>
+      </div>
+    </div>
+  `;
 }
 
 function Examples() {
