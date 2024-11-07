@@ -512,17 +512,35 @@ function SequenceViewer() {
   </div>`;
 }
 
-function TextBoxes() {
+function DSSPText() {
   const selected_position = position_signal.value;
   const dssp_data = dssp_signal.value ?? [];
   const dssp_description_string = [];
+  const text = {
+    H: "Helix",
+    E: "Strand",
+    C: "Coil",
+  };
   for (const [frame_index, frame] of dssp_data.entries()) {
+    if (frame_index > 0) continue;
     for (const [position, assignment] of frame.entries()) {
       if (position === selected_position) {
-        dssp_description_string.push(`Frame ${frame_index}: ${assignment}`);
+        dssp_description_string.push(
+          `The secondary structure at position ${position} is "${text[assignment]}"`
+        );
       }
     }
   }
+  return html`
+    <div>
+      <h2 className=${classes.h2}>DSSP</h2>
+      <${Spacer} />
+      <div>${dssp_description_string.map((d) => html`<div>${d}</div>`)}</div>
+    </div>
+  `;
+}
+
+function TextBoxes() {
   return html`
     <div className="grid grid-cols-3 gap-4">
       <div>
@@ -535,11 +553,7 @@ function TextBoxes() {
         <${Spacer} />
         <div>${grantham_score_signal?.value?.grantham_statement}</div>
       </div>
-      <div>
-        <h2 className=${classes.h2}>DSSP</h2>
-        <${Spacer} />
-        <div>${dssp_description_string.map((d) => html`<div>${d}</div>`)}</div>
-      </div>
+      ${h(DSSPText)}
     </div>
   `;
 }
