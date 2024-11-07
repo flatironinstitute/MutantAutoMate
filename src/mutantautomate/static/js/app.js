@@ -142,6 +142,10 @@ async function getDSSP() {
 async function fetchPDB(config) {
   console.log(`Fetching PDB:`, config);
   const { isoform, pdb_id, chains } = config;
+  selected_isoform_and_pdb_signal.value = {
+    isoform,
+    pdb_id,
+  };
   if (!pdb_id) return;
   pdb_data_raw_signal.value = null;
   pdb_data_trimmed_signal.value = null;
@@ -174,6 +178,10 @@ async function fetchPDB(config) {
 
 async function fetchPDBFromAlphaFold(isoform) {
   console.log(`Fetching from AlphaFold: ${isoform}`);
+  selected_isoform_and_pdb_signal.value = {
+    isoform,
+    pdb_id: `alphafold`,
+  };
   if (!isoform) return;
   pdb_data_raw_signal.value = null;
   pdb_data_trimmed_signal.value = null;
@@ -665,12 +673,6 @@ function IsoformCards() {
     // prettier-ignore
     const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
-    const fetch_sequence = async () => {
-      const response = await fetch(
-        `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`
-      ).then((res) => res.text());
-      sequence_viewer_signal.value = response.split("\n").slice(1).join("\n");
-    };
     let pdb_rows = html`<div className="text-gray-500 ml-[3ch]">
       No PDB IDs found
     </div>`;
@@ -689,32 +691,12 @@ function IsoformCards() {
             +position >= +position_start && +position <= +position_end;
         }
         const url = `https://www.rcsb.org/structure/${pdb_id}`;
-        const fetch_pdb = async () => {
-          pdb_data_raw_signal.value = null;
-          pdb_data_trimmed_signal.value = null;
-          pdb_data_mutated_signal.value = null;
-          // Set the mutation chain id to the first chain
-          mutation_chain_id_signal.value = chains[0];
-          await fetch_sequence();
-          const pdb_string_raw = await fetch(
-            `https://files.rcsb.org/download/${pdb_id}.pdb`
-          ).then((res) => res.text());
-          pdb_data_raw_signal.value = pdb_string_raw;
-          const trimmed = await fetch(`/trim_pdb`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ pdb_data: pdb_string_raw, chains }),
-          }).then((res) => res.text());
-          pdb_data_trimmed_signal.value = trimmed;
-          // await getDSSP();
-          // await getMutated();
-        };
         const load_button = html`<button
           disabled=${!is_in_pdb}
           className=${classes.smallButton}
-          onClick=${fetch_pdb}
+          onClick=${() => {
+            fetchPDB({ isoform, pdb_id, chains });
+          }}
         >
           Load PDB
         </button>`;
@@ -731,25 +713,18 @@ function IsoformCards() {
         `;
       });
     }
-    const load_from_alphafold = async () => {
-      await fetch_sequence();
-      const fixed_isoform = isoform.split("-")[0];
-      const url = `https://alphafold.ebi.ac.uk/api/prediction/${fixed_isoform}`;
-      const response = await fetch(url).then((res) => res.json());
-      const [first] = response;
-      const pdb_url = first?.pdbUrl;
-      const pdb_string_raw = await fetch(pdb_url).then((res) => res.text());
-      pdb_data_raw_signal.value = pdb_string_raw;
-      pdb_data_trimmed_signal.value = pdb_string_raw;
-      // await getMutated();
-    };
     return html`
       <div className="space-y-2">
         <h3 className=${classes.h3}>${isoform}</h3>
         ${anchors}
         <div>PDB IDs:</div>
         <div className="space-y-2">${pdb_rows}</div>
-        <button className=${classes.smallButton} onClick=${load_from_alphafold}>
+        <button
+          className=${classes.smallButton}
+          onClick=${() => {
+            fetchPDBFromAlphaFold(isoform);
+          }}
+        >
           Load PDB from Alphafold
         </button>
       </div>
