@@ -55,10 +55,10 @@ def trim_pdb(pdb_string, chains_to_keep):
 
     # Iterate through models and chains
     for model in structure:
-        chains_to_remove = []
         for chain in model:
             # Check if the chain ID is in the list of chains to keep
             if chain.id not in chains_to_keep:
+                # Detach the chain from the model
                 model.detach_child(chain.id)
 
     # Create an output PDB string

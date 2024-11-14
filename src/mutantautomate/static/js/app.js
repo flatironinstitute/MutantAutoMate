@@ -6,14 +6,15 @@ import { useRef, useEffect } from "preact/hooks";
 import {
   signal,
   computed,
-  effect,
-  useSignal,
+  batch,
   // @ts-ignore
 } from "@preact/signals";
 // @ts-ignore
 import { html } from "htm/preact";
 // @ts-ignore
 import $3Dmol from "3dmol";
+
+const intro_text = `orem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
 
 const classes = {
   h2: "text-2xl",
@@ -46,17 +47,19 @@ const loading_mutated_signal = signal(false);
 const dssp_signal = signal(null);
 
 const reset = () => {
-  READY_TO_FETCH = false;
-  is_running_signal.value = false;
-  events_signal.value = [];
-  selected_isoform_and_pdb_signal.value = null;
-  pdb_data_raw_signal.value = null;
-  pdb_data_trimmed_signal.value = null;
-  pdb_data_mutated_signal.value = null;
-  sequence_viewer_signal.value = null;
-  mutation_chain_id_signal.value = null;
-  loading_mutated_signal.value = false;
-  dssp_signal.value = null;
+  batch(() => {
+    READY_TO_FETCH = false;
+    is_running_signal.value = false;
+    events_signal.value = [];
+    selected_isoform_and_pdb_signal.value = null;
+    pdb_data_raw_signal.value = null;
+    pdb_data_trimmed_signal.value = null;
+    pdb_data_mutated_signal.value = null;
+    sequence_viewer_signal.value = null;
+    mutation_chain_id_signal.value = null;
+    loading_mutated_signal.value = false;
+    dssp_signal.value = null;
+  });
 };
 
 const log_array_signal = computed(() =>
@@ -200,7 +203,12 @@ async function fetchPDBFromAlphaFold(isoform) {
   await getMutated();
 }
 
-effect(function autoSelectPDB() {
+function autoSelectPDB() {
+  console.log(
+    "Auto-selecting PDB",
+    filtered_isoforms_signal.value,
+    events_signal.value
+  );
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const all_pdb_ids = pdb_ids_signal.value ?? {};
@@ -273,7 +281,7 @@ effect(function autoSelectPDB() {
   } else {
     fetchPDB({ isoform: first_isoform, pdb_id, chains });
   }
-});
+}
 
 const add_event = (event) => {
   events_signal.value = [...events_signal.value, event];
@@ -302,6 +310,7 @@ function start_processing() {
     add_event(parsed);
     if (parsed.type === "done") {
       is_running_signal.value = false;
+      autoSelectPDB();
       eventSource.close();
     }
   };
@@ -333,9 +342,10 @@ function App() {
         </div>
       </div>
       <div className="col-span-4">${h(PDBViewer)}</div>
+      <h2 className="col-span-4 text-2xl">Sequence</h2>
       <div className="col-span-4">${h(SequenceViewer)}</div>
       <div className="col-span-4">${h(TextBoxes)}</div>
-      <h2 className="col-span-4 text-2xl">DEBUG</h2>
+      <h2 className="col-span-4 text-2xl">All Isoforms</h2>
       <div className="col-span-2">${h(IsoformsTable)}</div>
       <div className="col-span-2">${h(IsoformCards)}</div>
     </div>
