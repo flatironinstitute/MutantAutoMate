@@ -1,6 +1,6 @@
 // @ts-check
 // @ts-ignore
-import { render, h } from "preact";
+import { render } from "preact";
 // @ts-ignore
 import { useRef, useEffect } from "preact/hooks";
 import {
@@ -14,7 +14,7 @@ import { html } from "htm/preact";
 // @ts-ignore
 import $3Dmol from "3dmol";
 
-const intro_text = `orem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
+const intro_text = `MutantAutoMate is a tool that lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
 
 const classes = {
   h2: "text-2xl",
@@ -28,56 +28,27 @@ const classes = {
   anchor: "text-blue-700 underline text-left",
 };
 
-// HMM This is not great
-let READY_TO_FETCH = false;
-
 const gene_name_signal = signal("NLGN1");
 const residue1_signal = signal("D");
 const position_signal = signal(140);
 const residue2_signal = signal("Y");
-const is_running_signal = signal(false);
 const events_signal = signal([]);
-const selected_isoform_and_pdb_signal = signal(null);
-const pdb_data_raw_signal = signal(null);
+const is_running_signal = signal(false);
+
+const selected_isoform_signal = signal(null);
+const selected_pdb_id_signal = signal(null);
+
+const loading_mutated_signal = signal(false);
 const pdb_data_trimmed_signal = signal(null);
 const pdb_data_mutated_signal = signal(null);
-const sequence_viewer_signal = signal(null);
-const mutation_chain_id_signal = signal(null);
-const loading_mutated_signal = signal(false);
+const sequence_signal = signal(null);
 const dssp_signal = signal(null);
 
-const reset = () => {
-  batch(() => {
-    READY_TO_FETCH = false;
-    is_running_signal.value = false;
-    events_signal.value = [];
-    selected_isoform_and_pdb_signal.value = null;
-    pdb_data_raw_signal.value = null;
-    pdb_data_trimmed_signal.value = null;
-    pdb_data_mutated_signal.value = null;
-    sequence_viewer_signal.value = null;
-    mutation_chain_id_signal.value = null;
-    loading_mutated_signal.value = false;
-    dssp_signal.value = null;
-  });
-};
-
-const log_array_signal = computed(() =>
-  events_signal.value
-    .map((e) => e.message)
-    .filter((d) => typeof d === "string")
-    .filter((d) => d !== "")
-    .filter((d) => d?.length > 0)
-);
-const log_signal = computed(() => log_array_signal.join("\n"));
-const grantham_score_signal = computed(() => {
-  return events_signal.value.find((e) => e.type === "grantham_score");
-});
-const charge_statement_signal = computed(() => {
-  return events_signal.value.find((e) => e.type === "charge_statement");
-});
 const all_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.all_isoforms)?.all_isoforms;
+});
+const sequences_signal = computed(() => {
+  return events_signal?.value?.filter((d) => d.type === "sequence") ?? [];
 });
 const matching_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.matching_isoforms)
@@ -87,31 +58,89 @@ const filtered_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.filtered_isoforms)
     ?.filtered_isoforms;
 });
-const received_pdb_ids_signal = computed(() => {
-  const got_them = events_signal.value.find((e) => e.type === "pdb_ids")
-    ? true
-    : false;
 
-  if (got_them) READY_TO_FETCH = true;
-  return got_them;
-});
 const pdb_ids_signal = computed(() => {
   const pdb_ids = events_signal.value.find((e) => e.pdb_ids)?.pdb_ids;
   return pdb_ids;
 });
-const sequences_signal = computed(() => {
-  return events_signal?.value?.filter((d) => d.type === "sequence") ?? [];
+
+const log_array_signal = computed(() =>
+  events_signal.value
+    .map((e) => e.message)
+    .filter((d) => typeof d === "string")
+    .filter((d) => d !== "")
+    .filter((d) => d?.length > 0)
+);
+
+const grantham_score_signal = computed(() => {
+  return events_signal.value.find((e) => e.type === "grantham_score");
 });
+const charge_statement_signal = computed(() => {
+  return events_signal.value.find((e) => e.type === "charge_statement");
+});
+
+function addEvent(event) {
+  events_signal.value = [...events_signal.value, event];
+}
+
+function startProcessing() {
+  // Reset stuff
+  events_signal.value = [];
+  is_running_signal.value = true;
+
+  const url = new URL("/process", window.location.origin);
+  url.searchParams.append("gene_name", gene_name_signal);
+  url.searchParams.append("residue1", residue1_signal);
+  url.searchParams.append("position", position_signal);
+  url.searchParams.append("residue2", residue2_signal);
+
+  const eventSource = new EventSource(url);
+
+  eventSource.onmessage = (event) => {
+    console.info(event.data);
+    let parsed;
+    try {
+      parsed = JSON.parse(event.data);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+    addEvent(parsed);
+    if (parsed.type === "done") {
+      is_running_signal.value = false;
+      autoSelectPDB();
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error("EventSource failed:", error);
+    eventSource.close();
+  };
+}
 
 async function fetchSequence(isoform) {
   console.log(`Fetching sequence for ${isoform}`);
   const response = await fetch(
     `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`
   ).then((res) => res.text());
-  sequence_viewer_signal.value = response.split("\n").slice(1).join("\n");
+  sequence_signal.value = response.split("\n").slice(1).join("\n");
 }
 
-async function getMutated() {
+async function getDSSP({ pdb_string }) {
+  const dssp_data = await fetch(`/dssp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pdb_string,
+    }),
+  }).then((res) => res.json());
+  dssp_signal.value = dssp_data;
+}
+
+async function getMutated({ pdb_string, chain_id, position, to_residue }) {
   loading_mutated_signal.value = true;
   const mutated_pdb_data = await fetch(`/mutate`, {
     method: "POST",
@@ -119,47 +148,26 @@ async function getMutated() {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      pdb_string: pdb_data_trimmed_signal.value,
-      chain_id: mutation_chain_id_signal.value,
-      position: position_signal.value,
-      to_residue: residue2_signal.value,
+      pdb_string,
+      chain_id,
+      position,
+      to_residue,
     }),
   }).then((res) => res.text());
   pdb_data_mutated_signal.value = mutated_pdb_data;
   loading_mutated_signal.value = false;
 }
 
-async function getDSSP() {
-  const dssp_data = await fetch(`/dssp`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pdb_string: pdb_data_trimmed_signal.value,
-    }),
-  }).then((res) => res.json());
-  dssp_signal.value = dssp_data;
-}
-
-async function fetchPDB(config) {
-  console.log(`Fetching PDB:`, config);
-  const { isoform, pdb_id, chains } = config;
-  selected_isoform_and_pdb_signal.value = {
-    isoform,
-    pdb_id,
-  };
-  if (!pdb_id) return;
-  pdb_data_raw_signal.value = null;
+async function fetchPDB({ isoform, pdb_id, chains }) {
+  console.log(`Fetching PDB:`, { isoform, pdb_id, chains });
+  selected_isoform_signal.value = isoform;
+  selected_pdb_id_signal.value = pdb_id;
   pdb_data_trimmed_signal.value = null;
   pdb_data_mutated_signal.value = null;
-  // Set the mutation chain id to the first chain
-  mutation_chain_id_signal.value = chains[0];
   await fetchSequence(isoform);
   const pdb_string_raw = await fetch(
     `https://files.rcsb.org/download/${pdb_id}.pdb`
   ).then((res) => res.text());
-  pdb_data_raw_signal.value = pdb_string_raw;
   // NOTE: Just trim to the first chain
   const trim_to_chain = chains?.[0];
   if (!trim_to_chain) {
@@ -175,20 +183,22 @@ async function fetchPDB(config) {
     body: JSON.stringify({ pdb_data: pdb_string_raw, chains: [trim_to_chain] }),
   }).then((res) => res.text());
   pdb_data_trimmed_signal.value = trimmed;
-  await getDSSP();
-  await getMutated();
+  await getDSSP({ pdb_string: trimmed });
+  await getMutated({
+    pdb_string: trimmed,
+    chain_id: trim_to_chain,
+    position: position_signal.value,
+    to_residue: residue2_signal.value
+  });
 }
 
 async function fetchPDBFromAlphaFold(isoform) {
   console.log(`Fetching from AlphaFold: ${isoform}`);
-  selected_isoform_and_pdb_signal.value = {
-    isoform,
-    pdb_id: `alphafold`,
-  };
-  if (!isoform) return;
-  pdb_data_raw_signal.value = null;
+  selected_isoform_signal.value = isoform;
+  selected_pdb_id_signal.value = `AlphaFold`;
   pdb_data_trimmed_signal.value = null;
   pdb_data_mutated_signal.value = null;
+  if (!isoform) return;
   await fetchSequence(isoform);
   const fixed_isoform = isoform.split("-")[0];
   const url = `https://alphafold.ebi.ac.uk/api/prediction/${fixed_isoform}`;
@@ -196,35 +206,27 @@ async function fetchPDBFromAlphaFold(isoform) {
   const [first] = response;
   const pdb_url = first?.pdbUrl;
   const pdb_string_raw = await fetch(pdb_url).then((res) => res.text());
-  pdb_data_raw_signal.value = pdb_string_raw;
   // We do not need to trim
   pdb_data_trimmed_signal.value = pdb_string_raw;
-  await getDSSP();
-  await getMutated();
+  await getDSSP({ pdb_string: pdb_string_raw });
+  await getMutated({
+    pdb_string: pdb_string_raw,
+    chain_id: null,
+    position: position_signal.value,
+    to_residue: residue2_signal.value
+  });
 }
 
 function autoSelectPDB() {
-  console.log(
-    "Auto-selecting PDB",
-    filtered_isoforms_signal.value,
-    events_signal.value
-  );
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const all_pdb_ids = pdb_ids_signal.value ?? {};
-
+  console.log(`Auto-Selecting PDB`, { filtered_isoforms });
   if (filtered_isoforms.length === 0) return;
-  if (!received_pdb_ids_signal.value) return;
 
   const first_isoform = filtered_isoforms[0];
 
   const first_isoform_pdb_ids = all_pdb_ids[first_isoform] ?? [];
-
-  console.log("Got Filtered Isoforms", {
-    filtered_isoforms,
-    all_pdb_ids,
-    first_isoform_pdb_ids,
-  });
 
   // Auto-select a PDB. The PDB must be:
   // 1. In the first isoform's list of PDBs
@@ -271,89 +273,36 @@ function autoSelectPDB() {
     }
   }
 
-  if (!found_pdb) return;
-  if (!READY_TO_FETCH) return;
-
+  if (!found_pdb) {
+    throw new Error(`found_pdb is undefined for some reason.`);
+  }
   const { pdb_id, chains } = found_pdb;
-  const received_pdb_ids = received_pdb_ids_signal.value;
-  if (pdb_id === `alphafold` && received_pdb_ids) {
+  if (pdb_id === `alphafold`) {
     fetchPDBFromAlphaFold(first_isoform);
   } else {
     fetchPDB({ isoform: first_isoform, pdb_id, chains });
   }
 }
 
-const add_event = (event) => {
-  events_signal.value = [...events_signal.value, event];
-};
 
-function start_processing() {
-  reset();
-  is_running_signal.value = true;
-  const url = new URL("/process", window.location.origin);
-  url.searchParams.append("gene_name", gene_name_signal);
-  url.searchParams.append("residue1", residue1_signal);
-  url.searchParams.append("position", position_signal);
-  url.searchParams.append("residue2", residue2_signal);
-
-  const eventSource = new EventSource(url);
-
-  eventSource.onmessage = (event) => {
-    console.info(event.data);
-    let parsed;
-    try {
-      parsed = JSON.parse(event.data);
-    } catch (e) {
-      console.error(e);
-      return;
-    }
-    add_event(parsed);
-    if (parsed.type === "done") {
-      is_running_signal.value = false;
-      autoSelectPDB();
-      eventSource.close();
-    }
-  };
-
-  eventSource.onerror = (error) => {
-    console.error("EventSource failed:", error);
-    eventSource.close();
-  };
+function Spacer({ size = 5 }) {
+  return html`<div className=${`h-${size}`}></div>`;
 }
 
-function App() {
-  return html`
-    <div
-      className="mt-10 max-w-[min(1500px,90vw)] ms-auto me-auto bg-white rounded rounded-2xl p-10 gap-6 flex flex-col md:grid md:text-[0.7rem] md:grid-cols-4"
-    >
-      <h2 className=${classes.h2 + ` col-span-4`}>MutantAutoMate</h2>
-      ${h(Inputs)}
-      <div className="col-span-4">${h(Examples)}</div>
-      <div className="col-span-1">
-        <h2>Selected Isoform</h2>
-        <div className="text-lg font-bold">
-          ${selected_isoform_and_pdb_signal.value?.isoform ?? `—`}
-        </div>
-      </div>
-      <div className="col-span-1">
-        <h2>Selected PDB</h2>
-        <div className="text-lg font-bold">
-          ${selected_isoform_and_pdb_signal.value?.pdb_id ?? `—`}
-        </div>
-      </div>
-      <div className="col-span-4">${h(PDBViewer)}</div>
-      <h2 className="col-span-4 text-2xl">Sequence</h2>
-      <div className="col-span-4">${h(SequenceViewer)}</div>
-      <div className="col-span-4">${h(TextBoxes)}</div>
-      <h2 className="col-span-4 text-2xl">All Isoforms</h2>
-      <div className="col-span-2">${h(IsoformsTable)}</div>
-      <div className="col-span-2">${h(IsoformCards)}</div>
-    </div>
-  `;
+function Anchor({ children, href }) {
+  return html`<a
+    href=${href}
+    target="_blank"
+    rel="noreferrer"
+    className=${classes.anchor}
+  >
+    ${children}
+  </a>`;
 }
 
 function Inputs() {
   return html`
+  <div class="grid grid-cols-2 gap-y-4 gap-x-4">
     <label>
       <div>Gene Name</div>
       <input
@@ -390,22 +339,86 @@ function Inputs() {
         onInput=${(e) => (residue2_signal.value = e.target.value)}
       />
     </label>
-    <button
-      className=${classes.bigButton}
-      disabled=${is_running_signal}
-      onClick=${start_processing}
-    >
-      Start
-    </button>
-    <div className="col-span-3">
-      <div>Status:</div>
-      <div>${log_array_signal.value.at(-1)}</div>
+    <div class="col-span-2">
+      <button
+        className=${classes.bigButton}
+        disabled=${is_running_signal}
+        onClick=${startProcessing}
+      >
+        Start
+      </button>
     </div>
-    <!-- <label className="w-full">
-      <div>Progress</div>
-      <progress max="100" value="59" className="w-full" />
-    </label> -->
+    <div className="col-span-2">
+      <div>Status:</div>
+      <div>${log_array_signal.value.at(-1) ?? `Pending`}</div>
+    </div>
+  </div>
   `;
+}
+
+function DSSPText() {
+  const selected_position = position_signal.value;
+  const dssp_data = dssp_signal.value ?? [];
+  const dssp_description_string = [];
+  const textMap = {
+    H: "Helix",
+    E: "Strand",
+    C: "Coil",
+  };
+  for (const [frame_index, frame] of dssp_data.entries()) {
+    if (frame_index > 0) continue;
+    for (const [position, assignment] of frame.entries()) {
+      if (position === selected_position) {
+        dssp_description_string.push(
+          `The secondary structure at position ${position} is "${textMap[assignment]}"`
+        );
+      }
+    }
+  }
+  let text = html`Pending`;
+  if (dssp_description_string.length > 0) {
+    text = dssp_description_string.map((d) => html`<div>${d}</div>`)
+  }
+  return html`
+    <div>
+      <h2 className=${classes.h2}>DSSP</h2>
+      <${Spacer} />
+      <div>${text}</div>
+    </div>
+  `;
+}
+
+
+function TextBoxes() {
+  const isoform = selected_isoform_signal.value;
+  const pdb_id = selected_pdb_id_signal.value;
+
+  const isoform_anchors = isoform ? html`<div><${IsoformAnchors} isoform=${isoform} /></div>` : null;
+  const pdb_url = `https://www.rcsb.org/structure/${pdb_id}`;
+  const pdb_anchor = pdb_id ? html`<${Anchor} href=${pdb_url}>${pdb_id}</${Anchor}>` : `Pending`;
+  return html`
+  <div className="grid grid-cols-4 gap-4 px-10">
+    <div>
+      <h2 className=${classes.h2}>Selected Isoform</h2>
+      <div>${selected_isoform_signal.value ?? `Pending`}</div>
+      ${isoform_anchors}
+      <${Spacer} />
+      <h2 className=${classes.h2}>Selected PDB</h2>
+      <div>${pdb_anchor}</div>
+    </div>
+    <div>
+      <h2 className=${classes.h2}>Charge Statement</h2>
+      <${Spacer} />
+      <div>${charge_statement_signal?.value?.charge_statement ?? `Pending`}</div>
+    </div>
+    <div>
+      <h2 className=${classes.h2}>Grantham Score</h2>
+      <${Spacer} />
+      <div>${grantham_score_signal?.value?.grantham_statement ?? `Pending`}</div>
+    </div>
+    <${DSSPText} />
+  </div>
+`;
 }
 
 const usePDBViewer = (pdbSignal, viewer) => {
@@ -485,27 +498,28 @@ function PDBViewer() {
     : "";
 
   return html`
-    <h2 className=${classes.h2}>PDB Viewer</h2>
-    <${Spacer} />
-    <button
-      className=${classes.button}
-      onClick=${zoom_to}
-      disabled=${!pdb_data_trimmed_signal.value}
-    >
-      Zoom to Position: ${position_signal.value}
-    </button>
-    <div className="inline-block ml-4 text-lg">${loading_text}</div>
-    <${Spacer} />
-    <div
-      ref=${viewerDivRef}
-      className="w-full h-[400px] relative outline outline-black"
-    ></div>
+    <div class="px-10">
+      <h2 className=${classes.h2}>PDB Viewer</h2>
+      <${Spacer} />
+      <button
+        className=${classes.button}
+        onClick=${zoom_to}
+        disabled=${!pdb_data_trimmed_signal.value}
+      >
+        Zoom to Position: ${position_signal.value}
+      </button>
+      <div className="inline-block ml-4 text-lg">${loading_text}</div>
+      <${Spacer} />
+      <div
+        ref=${viewerDivRef}
+        className="w-full h-[400px] relative outline outline-black"
+      ></div>
+    </div>
   `;
 }
 
 function SequenceViewer() {
-  const value = sequence_viewer_signal.value ?? "";
-  console.log("SequenceViewer", { value });
+  const value = sequence_signal.value ?? "";
   const letters = value
     .split("")
     .filter((letter) => letter.match(/[A-Z]/))
@@ -518,170 +532,44 @@ function SequenceViewer() {
           ${index + 1}
         </span>`;
       }
-      const bg = index + 1 === position_signal.value ? "bg-yellow-200" : "";
+      const bg = index + 1 === position_signal.value ? "bg-yellow-200 outline outline-2 outline-red-500" : "";
       return html`<span className=${`relative block ${bg}`}>
         ${marker}${letter}
       </span>`;
     });
-  return html`<div
+  const seq = html`<div
     className="flex flex-wrap gap-y-[1.2rem] font-mono leading-none"
   >
     ${letters}
   </div>`;
-}
-
-function DSSPText() {
-  const selected_position = position_signal.value;
-  const dssp_data = dssp_signal.value ?? [];
-  const dssp_description_string = [];
-  const text = {
-    H: "Helix",
-    E: "Strand",
-    C: "Coil",
-  };
-  for (const [frame_index, frame] of dssp_data.entries()) {
-    if (frame_index > 0) continue;
-    for (const [position, assignment] of frame.entries()) {
-      if (position === selected_position) {
-        dssp_description_string.push(
-          `The secondary structure at position ${position} is "${text[assignment]}"`
-        );
-      }
-    }
-  }
   return html`
-    <div>
-      <h2 className=${classes.h2}>DSSP</h2>
+    <div class="px-10">
+      <h2 class=${classes.h2}>Sequence</h2>
       <${Spacer} />
-      <div>${dssp_description_string.map((d) => html`<div>${d}</div>`)}</div>
+      ${value === "" ? `Pending` : seq}
     </div>
-  `;
+  `
 }
 
-function TextBoxes() {
-  return html`
-    <div className="grid grid-cols-3 gap-4">
-      <div>
-        <h2 className=${classes.h2}>Charge Statement</h2>
-        <${Spacer} />
-        <div>${charge_statement_signal?.value?.charge_statement}</div>
-      </div>
-      <div>
-        <h2 className=${classes.h2}>Grantham Score</h2>
-        <${Spacer} />
-        <div>${grantham_score_signal?.value?.grantham_statement}</div>
-      </div>
-      ${h(DSSPText)}
-    </div>
-  `;
+function IsoformAnchors({ isoform }) {
+  const uniprot_url = `https://www.uniprot.org/uniprotkb/${isoform}`;
+  const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
+  const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
+  const fasta_url = `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`;
+  const uniprot_anchor = html`<${Anchor} href=${uniprot_url}>UniProt</${Anchor}>`;
+  const text_anchor = html`<${Anchor} href=${text_url}>Text</${Anchor}>`;
+  const json_anchor = html`<${Anchor} href=${json_url}>JSON</${Anchor}>`;
+  const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
+  // prettier-ignore
+  const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
+  return anchors;
 }
 
-function Examples() {
-  const others = `SLC6A1 S295, FRMPD4 E471, NRXN1 T324, NRXN1 V1214, ACTB V298`
-    .split(`,`)
-    .map((d) => d.trim())
-    .filter((d) => d.length > 0)
-    .map((string) => {
-      const [gene_name, residue] = string.split(" ");
-      const residue1 = residue[0];
-      const position = +residue.slice(1);
-      const residue2 = `C`;
-      return [gene_name, residue1, position, residue2];
-    });
-  const examples = [
-    [`NLGN1`, `D`, 140, `Y`],
-    [`SHANK3`, `D`, 26, `Y`],
-    [`NRXN1`, `K`, 287, `E`],
-    [`CSNK1G1`, `T`, 140, `C`],
-    [`SCN2A`, `R`, 1635, `C`],
-    ...others,
-  ];
-  const buttons = examples.map(([gene_name, residue1, position, residue2]) => {
-    return html`
-      <button
-        className=${classes.button}
-        onClick=${() => {
-          gene_name_signal.value = gene_name;
-          residue1_signal.value = residue1;
-          position_signal.value = position;
-          residue2_signal.value = residue2;
-          start_processing();
-        }}
-      >
-        ${gene_name} ${residue1}${position}
-      </button>
-    `;
-  });
-  return html`
-    <section>
-      <h4 className="mb-2">Examples</h4>
-      <div className="flex flex-wrap gap-4">${buttons}</div>
-    </section>
-  `;
-}
-
-function IsoformsTable() {
-  const all_isoforms = all_isoforms_signal.value ?? [];
-  const sequences = sequences_signal.value ?? [];
-  const residue_matches = matching_isoforms_signal.value ?? [];
-  const gene_name_matches = filtered_isoforms_signal.value ?? [];
-  const rows = all_isoforms.map((isoform) => {
-    // const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
-    const url = `https://www.uniprot.org/uniprotkb/${isoform}`;
-    const anchor = html`<${Anchor} href=${url}>${isoform}</${Anchor}>`;
-    const found_sequence = sequences.find((d) => d.isoform === isoform);
-    const found_residue = residue_matches.find((d) => d === isoform);
-    const found_gene_name = gene_name_matches.find((d) => d === isoform);
-    return html`
-      <tr>
-        <td>${anchor}</td>
-        <td className="text-center">${found_sequence ? `✅` : `-`}</td>
-        <td className="text-center">${found_residue ? `✅` : `-`}</td>
-        <td className="text-center">${found_gene_name ? `✅` : `-`}</td>
-      </tr>
-    `;
-  });
-
-  return html`
-    <style>
-      table.grid {
-        thead,
-        tbody,
-        tr {
-          display: contents;
-        }
-      }
-    </style>
-    <table className="grid grid-cols-4">
-      <thead>
-        <tr className="text-xs">
-          <th>Isoform</th>
-          <th>Got Sequence</th>
-          <th>Residue Match</th>
-          <th>Gene Name Match</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  `;
-}
-
-function IsoformCards() {
+function MatchingIsoforms() {
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const cards = filtered_isoforms.map((isoform) => {
-    const uniprot_url = `https://www.uniprot.org/uniprotkb/${isoform}`;
-    const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
-    const json_url = `https://rest.uniprot.org/uniprotkb/${isoform}.json`;
-    const fasta_url = `https://rest.uniprot.org/uniprotkb/${isoform}.fasta`;
-    const uniprot_anchor = html`<${Anchor} href=${uniprot_url}>UniProt</${Anchor}>`;
-    const text_anchor = html`<${Anchor} href=${text_url}>Text</${Anchor}>`;
-    const json_anchor = html`<${Anchor} href=${json_url}>JSON</${Anchor}>`;
-    const fasta_anchor = html`<${Anchor} href=${fasta_url}>FASTA</${Anchor}>`;
-    // prettier-ignore
-    const anchors = html`${uniprot_anchor} | ${text_anchor} | ${json_anchor} | ${fasta_anchor}`;
+    const anchors = html`<${IsoformAnchors} isoform=${isoform} />`
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
     let pdb_rows = html`<div className="text-gray-500 ml-[3ch]">
       No PDB IDs found
@@ -740,29 +628,142 @@ function IsoformCards() {
       </div>
     `;
   });
-  return html`<div className="space-y-4">${cards}</div>`;
+  return html`
+  <div class="px-10">
+    <h2 class=${classes.h2}>Matching Isoforms</h2>
+    <${Spacer} />
+    <div className="space-y-4">${filtered_isoforms.length === 0 ? `Pending` : cards}</div>
+  </div>`;
 }
 
-function Separator() {
-  return html`<${Spacer} size=${10} />
-    <hr className="h-[2px] bg-black border-none" />
-    <${Spacer} />`;
+function AllIsoforms() {
+  const all_isoforms = all_isoforms_signal.value ?? [];
+  const sequences = sequences_signal.value ?? [];
+  const residue_matches = matching_isoforms_signal.value ?? [];
+  const gene_name_matches = filtered_isoforms_signal.value ?? [];
+  const rows = all_isoforms.map((isoform) => {
+    // const url = `https://rest.uniprot.org/uniprotkb/${isoform}`;
+    const url = `https://www.uniprot.org/uniprotkb/${isoform}`;
+    const anchor = html`<${Anchor} href=${url}>${isoform}</${Anchor}>`;
+    const found_sequence = sequences.find((d) => d.isoform === isoform);
+    const found_residue = residue_matches.find((d) => d === isoform);
+    const found_gene_name = gene_name_matches.find((d) => d === isoform);
+    return html`
+      <tr>
+        <td>${anchor}</td>
+        <td className="text-center">${found_sequence ? `✅` : `-`}</td>
+        <td className="text-center">${found_residue ? `✅` : `-`}</td>
+        <td className="text-center">${found_gene_name ? `✅` : `-`}</td>
+      </tr>
+    `;
+  });
+
+  const table = html`
+    <style>
+      table.grid {
+        thead,
+        tbody,
+        tr {
+          display: contents;
+        }
+      }
+    </style>
+    <table className="grid grid-cols-4">
+      <thead>
+        <tr className="text-xs">
+          <th>Isoform</th>
+          <th>Sequence?</th>
+          <th>Residue?</th>
+          <th>Gene Name?</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+
+  return html`<div class="px-10">
+    <h2 class=${classes.h2}>All Isoforms</h2>
+    <${Spacer} />
+    ${table}
+  </div>`
 }
 
-function Spacer({ size = 5 }) {
-  return html`<div className=${`h-${size}`}></div>`;
+
+function Examples() {
+  const others = `SLC6A1 S295, FRMPD4 E471, NRXN1 T324, NRXN1 V1214, ACTB V298`
+    .split(`,`)
+    .map((d) => d.trim())
+    .filter((d) => d.length > 0)
+    .map((string) => {
+      const [gene_name, residue] = string.split(" ");
+      const residue1 = residue[0];
+      const position = +residue.slice(1);
+      const residue2 = `C`;
+      return [gene_name, residue1, position, residue2];
+    });
+  const examples = [
+    [`NLGN1`, `D`, 140, `Y`],
+    [`SHANK3`, `D`, 26, `Y`],
+    [`NRXN1`, `K`, 287, `E`],
+    [`CSNK1G1`, `T`, 140, `C`],
+    [`SCN2A`, `R`, 1635, `C`],
+    ...others,
+  ];
+  const buttons = examples.map(([gene_name, residue1, position, residue2]) => {
+    return html`
+      <button
+        className=${classes.button}
+        onClick=${() => {
+          gene_name_signal.value = gene_name;
+          residue1_signal.value = residue1;
+          position_signal.value = position;
+          residue2_signal.value = residue2;
+          startProcessing();
+        }}
+      >
+        ${gene_name} ${residue1}${position}
+      </button>
+    `;
+  });
+  return html`
+    <section class="px-10">
+      <h2 class=${classes.h2}>Examples</h2>
+      <${Spacer} />
+      <div className="flex flex-wrap gap-4">${buttons}</div>
+    </section>
+  `;
 }
 
-function Anchor({ children, href }) {
-  return html`<a
-    href=${href}
-    target="_blank"
-    rel="noreferrer"
-    className=${classes.anchor}
-  >
-    ${children}
-  </a>`;
+function App() {
+  return html`
+  <main class="space-y-4">
+    <div
+      className="grid lg:grid-cols-2"
+    >
+      <section class="py-10 px-10" style=${{ backgroundColor: `var(--ccb-green)` }}>
+        <h1 class="text-[3rem]">MutantAutoMate</h1>
+        <p>${intro_text}</p>
+      </section>
+      <section class="py-10 px-10">
+        <h2 class="text-3xl">Inputs</h2>
+        <${Inputs} />
+      </section>
+    </div>
+   <${TextBoxes} />
+   <${PDBViewer} />
+   <${SequenceViewer} />
+   <${Spacer} />
+   <${MatchingIsoforms} />
+   <${Spacer} />
+   <${AllIsoforms} />
+   <${Spacer} />
+   <${Examples} />
+   <${Spacer} />
+</main>
+  `;
 }
 
-render(h(App), document.body);
+render(html`<${App} />`, document.body);
 window.scrollTo(0, 0);
