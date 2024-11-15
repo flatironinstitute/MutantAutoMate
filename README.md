@@ -50,3 +50,10 @@ cd src/mutantautomate
 python ./final.py --gene-name NLGN1 --residue1 D --position 140 --residue2 Y --top-isoforms True
 ```
 
+## Frontend / Web Server
+
+[app2.py](src/mutantautomate/app2.py) is a Flask app that serves a single index page, [index2.html](src/mutantautomate/templates/index.html).
+
+The Flask app uses [`process.py`](src/mutantautomate/process.py) and [`pdb_helpers.py`](src/mutantautomate/pdb_helpers.py) to do the back-end processing. `process.py` has a `process` function which is a Python *generator*. The front-end opens up an `EventSource`, and the `process` function yields JSON events back to the browser.
+
+The front-end uses [Preact](https://preactjs.com) and other JS libraries to render the front end. There is no build step, everything is rendered in-browser and fetched from the JS CDN called [esm.sh](https://esm.sh).
