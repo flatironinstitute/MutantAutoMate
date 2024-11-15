@@ -164,6 +164,7 @@ async function fetchPDB({ isoform, pdb_id, chains }) {
   selected_pdb_id_signal.value = pdb_id;
   pdb_data_trimmed_signal.value = null;
   pdb_data_mutated_signal.value = null;
+  dssp_signal.value = null;
   await fetchSequence(isoform);
   const pdb_string_raw = await fetch(
     `https://files.rcsb.org/download/${pdb_id}.pdb`
@@ -198,6 +199,7 @@ async function fetchPDBFromAlphaFold(isoform) {
   selected_pdb_id_signal.value = `AlphaFold`;
   pdb_data_trimmed_signal.value = null;
   pdb_data_mutated_signal.value = null;
+  dssp_signal.value = null;
   if (!isoform) return;
   await fetchSequence(isoform);
   const fixed_isoform = isoform.split("-")[0];
