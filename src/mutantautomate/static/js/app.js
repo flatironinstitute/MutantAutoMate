@@ -85,8 +85,17 @@ function addEvent(event) {
 
 function startProcessing() {
   // Reset stuff
-  events_signal.value = [];
-  is_running_signal.value = true;
+  batch(() => {
+    is_running_signal.value = true;
+    events_signal.value = [];
+    selected_isoform_signal.value = null;
+    selected_pdb_id_signal.value = null;
+    pdb_data_trimmed_signal.value = null;
+    pdb_data_mutated_signal.value = null;
+    sequence_signal.value = null;
+    dssp_signal.value = null;
+  })
+
 
   const url = new URL("/process", window.location.origin);
   url.searchParams.append("gene_name", gene_name_signal);
