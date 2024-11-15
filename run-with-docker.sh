@@ -1,5 +1,5 @@
-# docker build -t mutantautomate .
 # module load docker
+# docker build -t mutantautomate .
 docker \
   run \
   --rm \
