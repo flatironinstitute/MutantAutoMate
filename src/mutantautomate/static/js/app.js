@@ -272,7 +272,7 @@ function startEventSource(url) {
 
   const onMessage = (event) => {
     try {
-      /** @type {Event} */
+      /** @type {unknown} */
       let parsed;
       try {
         parsed = JSON.parse(event.data);
@@ -290,16 +290,21 @@ function startEventSource(url) {
         console.error(`Error parsing event:`, parsed);
         console.error(`Raw error:`, parseResult.error);
         console.error(`Formatted error:`, parseResult.error.format());
-        throw new Error(`Error parsing event:`, {
-          cause: {
-            parseResult,
-            parsed,
-          },
-        });
+        // Don't throw an error here, just log it.
+        // throw new Error(`Error parsing event:`, {
+        //   cause: {
+        //     parseResult,
+        //     parsed,
+        //   },
+        // });
       }
-      // Add the event to the events Signal
-      addEvent(parsed);
-      if (parsed.type === "done") {
+
+      /** The event has now passed the parsing step so we assume it's valid. */
+      const validEvent = /** @type {Event} */ (parsed);
+
+      /** Add the event to the events Signal. */
+      addEvent(validEvent);
+      if (validEvent.type === "done") {
         is_running_signal.value = false;
         autoSelectPDB();
         console.info("Done processing, closing EventSource");
