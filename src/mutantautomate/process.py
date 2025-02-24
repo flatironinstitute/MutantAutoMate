@@ -139,6 +139,7 @@ def search_uniprot(url):
         if match:
             next_link = match.group(1)
     return {
+        "type": "uniprot_results",
         "isoforms": isoforms,
         "next_link": next_link,
     }
@@ -163,7 +164,7 @@ def get_sequence(isoform):
 def get_sequences_generator(isoforms):
     for isoform in isoforms:
         sequence = get_sequence(isoform)
-        yield {"isoform": isoform, "sequence": sequence}
+        yield {"type": "isoform_and_sequence", "isoform": isoform, "sequence": sequence}
 
 
 def search_residue(sequence, residue, position):
@@ -190,7 +191,11 @@ def get_gene_name(uniprot_id):
 def get_gene_names_generator(isoforms):
     for isoform in isoforms:
         gene_name = get_gene_name(isoform)
-        yield {"isoform": isoform, "gene_name": gene_name}
+        yield {
+            "type": "isoform_and_gene_name",
+            "isoform": isoform,
+            "gene_name": gene_name,
+        }
 
 
 # Function to calculate similarity between two sequences using PairwiseAligner
@@ -238,8 +243,15 @@ def process(gene_name, residue1, position, residue2):
                 "sequence": None,
                 "gene_name": None,
             }
-        yield {"message": f"got {len(all_isoforms)} isoforms"}
-    yield {"all_isoforms": list(all_isoforms.keys())}
+        yield {
+            "type": "isoforms_progress",
+            "message": f"got {len(all_isoforms)} isoforms",
+        }
+    yield {
+        "type": "all_isoforms",
+        "message": "All isoforms",
+        "all_isoforms": list(all_isoforms.keys()),
+    }
 
     # Collect all sequences
     sequences_found = 0
@@ -249,11 +261,14 @@ def process(gene_name, residue1, position, residue2):
         all_isoforms[isoform]["sequence"] = sequence
         sequences_found += 1
         yield {
+            "type": "isoform_sequence",
             "message": f"got sequence for {isoform}",
-            "type": "sequence",
             "isoform": isoform,
         }
-        yield {"message": f"got {sequences_found} / {len(all_isoforms)} sequences"}
+        yield {
+            "type": "isoform_sequence_progress",
+            "message": f"got {sequences_found} / {len(all_isoforms)} sequences",
+        }
 
     # Find isoforms with residue1 at position
     matching_isoforms = {}
@@ -261,8 +276,12 @@ def process(gene_name, residue1, position, residue2):
         sequence = data["sequence"]
         if search_residue(sequence, residue1, position):
             matching_isoforms[isoform] = data
-            yield {"message": f"found {isoform} with {residue1} at position {position}"}
+            yield {
+                "type": "message",
+                "message": f"found {isoform} with {residue1} at position {position}",
+            }
     yield {
+        "type": "matching_isoforms",
         "message": f"found {len(matching_isoforms)} matching isoforms",
         "matching_isoforms": list(matching_isoforms.keys()),
     }
@@ -273,6 +292,7 @@ def process(gene_name, residue1, position, residue2):
         this_gene_name = result["gene_name"]
         all_isoforms[isoform]["gene_name"] = this_gene_name
         yield {
+            "type": "gene_name",
             "message": f"got gene name for {isoform}: {this_gene_name}",
             "gene_name": this_gene_name,
         }
@@ -281,10 +301,14 @@ def process(gene_name, residue1, position, residue2):
     filtered_isoforms = {}
     for isoform in matching_isoforms:
         this_gene_name = matching_isoforms[isoform]["gene_name"]
-        yield {"message": f"gene names for {isoform}: {this_gene_name} and {gene_name}"}
+        yield {
+            "type": "message",
+            "message": f"gene names for {isoform}: {this_gene_name} and {gene_name}",
+        }
         if this_gene_name == gene_name:
             filtered_isoforms[isoform] = matching_isoforms[isoform]
     yield {
+        "type": "filtered_isoforms",
         "message": f"filtered isoforms: {filtered_isoforms.keys()}",
         "filtered_isoforms": list(filtered_isoforms.keys()),
     }
@@ -298,7 +322,8 @@ def process(gene_name, residue1, position, residue2):
             alignment_score = calculate_similarity(sequence1, sequence2)
             pairwise_scores[(isoform1, isoform2)] = alignment_score
             yield {
-                "message": f"similarity for {isoform1} and {isoform2}: {alignment_score}"
+                "type": "message",
+                "message": f"similarity for {isoform1} and {isoform2}: {alignment_score}",
             }
     # Convert the dictionary with tuple keys to a list of dictionaries that is JSON serializable
     pairwise_scores_list = []
@@ -307,6 +332,8 @@ def process(gene_name, residue1, position, residue2):
             {"isoform1": isoform1, "isoform2": isoform2, "score": score}
         )
     yield {
+        "type": "pairwise_scores",
+        "message": "Pairwise scores",
         "pairwise_scores": pairwise_scores_list,
     }
 
@@ -331,95 +358,4 @@ def process(gene_name, residue1, position, residue2):
                         if prop["key"] == "Resolution":
                             resolution = prop["value"]
                 pdb_ids[isoform].append([pdb_id, chains_specifier, resolution])
-    yield {"type": "pdb_ids", "pdb_ids": pdb_ids}
-
-
-# def example():
-#     results = process("NLGN1", "D", 140, "Y")
-#     for result in results:
-#         print(result)
-
-
-# example()
-
-
-# # Collect all sequences
-# all_sequences = []
-# for result in get_sequences_generator(all_isoforms):
-#     isoform = result["isoform"]
-#     sequence = result["sequence"]
-#     yield f"got sequence for {isoform}"
-#     all_isoforms[isoform] = sequence
-#     all_sequences.append((isoform, sequence))
-#     yield f"got {len(all_sequences)} / {len(all_isoforms)} sequences"
-
-# # Find isoforms with residue1 at position
-# matching_isoforms = search_residue(all_sequences, residue1, position, gene_name)
-# yield f"found {len(matching_isoforms)} matching isoforms: {matching_isoforms}"
-
-# # Get gene names for isoforms
-# isoforms_with_gene_names = []
-# for result in get_gene_names_generator(matching_isoforms):
-#     print(f"got gene name: {result}")
-#     isoforms_with_gene_names.append((result["isoform"], result["gene_name"]))
-
-
-# TODO: Is this right?
-# Get the sequence of the main gene?
-# input_gene_sequence = get_sequence(gene_name)
-# print(f"input gene sequence: {input_gene_sequence}")
-
-# Score isoforms by similarity
-# for isoform, data in filtered_isoforms:
-#     sequence = data["sequence"]
-#     similarity = calculate_similarity(sequence, sequence)
-#     yield f"similarity for {isoform}: {similarity}"
-
-# # Score isoforms by similarity
-# scored_isoforms = []
-# for isoform in filtered_isoforms:
-#     # Get the sequence from all_sequences
-#     sequence = next(
-#         (seq for isoform_id, seq in all_sequences if isoform_id == isoform), None
-#     )
-
-# # Test similartity
-# similarty = calculate_similarity(all_sequences[0][1], all_sequences[1][1])
-# yield f"similarity: {similarty}"
-# print("done")
-
-
-# # Function to search for a specific residue at a position in isoforms of a gene
-# def search_residue(all_sequences, residue, position, gene_name):
-#     matching_isoforms = []
-#     for isoform, sequence in all_sequences:
-#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
-#             matching_isoforms.append(isoform)
-#     return matching_isoforms
-
-
-# Function to search for a specific residue at a position in isoforms of a gene
-# def search_residue(all_isoforms, residue, position, gene_name):
-#     matching_isoforms = {}
-#     for isoform, data in all_isoforms.items():
-#         sequence = data["sequence"]
-#         if len(sequence) > position - 1 and sequence[position - 1] == residue:
-#             matching_isoforms[isoform] = data
-#     return matching_isoforms
-
-# alignment_length = len(best_alignment)
-# print(f"alignment_length: {alignment_length}")
-# print(f"sequence1 length: {len(sequence1)}")
-# print(f"sequence2 length: {len(sequence2)}")
-# similarity = alignment_score / alignment_length * 100
-# return similarityƒf
-
-# def get_gene_name(uniprot_id):
-#     url = f"https://www.uniprot.org/uniprot/{uniprot_id}.txt"
-#     response = requests.get(url)
-#     lines = response.text.split("\n")
-#     for line in lines:
-#         if line.startswith("GN   Name="):
-#             gene_name = line.split("GN   Name=")[1].split(";")[0]
-#             return gene_name
-#     return None
+    yield {"type": "pdb_ids", "message": "PDB IDs", "pdb_ids": pdb_ids}

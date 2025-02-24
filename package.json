@@ -1,0 +1,13 @@
+{
+  "name": "mutantautomate",
+  "private": true,
+  "version": "2025.02.24",
+  "description": "NOTE: This is only being used for Typescript typing locally. You DO NOT need to install dependencies to deploy this app",
+  "devDependencies": {
+    "3dmol": "latest",
+    "@preact/signals": "latest",
+    "htm": "latest",
+    "preact": "latest",
+    "zod": "latest"
+  }
+}

@@ -1,20 +1,157 @@
 // @ts-check
-// @ts-ignore
-import { render } from "preact";
-// @ts-ignore
-import { useRef, useEffect } from "preact/hooks";
-import {
-  signal,
-  computed,
-  batch,
-  // @ts-ignore
-} from "@preact/signals";
-// @ts-ignore
-import { html } from "htm/preact";
-// @ts-ignore
-import $3Dmol from "3dmol";
 
+/**
+ * NOTE: This project **does not** use a build step for JavaScript.
+ * - All of these libraries are fetched live in the browser.
+ * - The `package.json` in the root is **only** used for local Typescript checks.
+ * - You **do not** need to run `npm install` to deploy this page.
+ * - We are using an [importmap](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap).
+ * - The importmap is defined in the HTML file named `index2.html`.
+ * - All packages are fetched from a free JS CDN, [esm.sh](https://esm.sh/).
+ */
+import { render } from "preact";
+import { useRef, useEffect } from "preact/hooks";
+import { signal, computed, batch, effect } from "@preact/signals";
+import { html } from "htm/preact";
+import $3Dmol from "3dmol";
+import { z } from "zod";
+
+/** Edit this to edit the intro text. */
 const intro_text = `MutantAutoMate is a tool that lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
+
+/**
+ * Top-Level Type Definitions
+ * =========================================================
+ */
+
+/**
+ * @template T
+ * @typedef {import("@preact/signals").Signal<T>} Signal
+ */
+
+/**
+ * Schema
+ * =========================================================
+ */
+
+const ShortIdSchema = z.string().min(3).max(15);
+const ShortIdArraySchema = z.array(ShortIdSchema);
+
+const MessageBaseSchema = z
+  .object({
+    message: z.string(),
+  })
+  .strict();
+
+const MessageEventSchema = MessageBaseSchema.extend({
+  type: z.literal("message"),
+}).strict();
+
+const GranthamScoreEventSchema = MessageBaseSchema.extend({
+  type: z.literal("grantham_score"),
+  grantham_statement: z.string(),
+  grantham_score: z.number(),
+}).strict();
+
+const ChargeStatementEventSchema = MessageBaseSchema.extend({
+  type: z.literal("charge_statement"),
+  charge_statement: z.string(),
+}).strict();
+
+const IsoformsProgressEventSchema = MessageBaseSchema.extend({
+  type: z.literal("isoforms_progress"),
+  message: z.string().regex(/^got \d+ isoforms$/),
+}).strict();
+
+const AllIsoformsEventSchema = MessageBaseSchema.extend({
+  type: z.literal("all_isoforms"),
+  all_isoforms: ShortIdArraySchema,
+}).strict();
+
+const IsoformSequenceEventSchema = MessageBaseSchema.extend({
+  type: z.literal("isoform_sequence"),
+  isoform: ShortIdSchema,
+}).strict();
+
+const IsoformSequenceProgressEventSchema = MessageBaseSchema.extend({
+  type: z.literal("isoform_sequence_progress"),
+  message: z.string().regex(/^got \d+ \/ \d+ sequences$/),
+}).strict();
+
+const MatchingIsoformsEventSchema = MessageBaseSchema.extend({
+  type: z.literal("matching_isoforms"),
+  matching_isoforms: ShortIdArraySchema,
+}).strict();
+
+const GeneNameEventSchema = MessageBaseSchema.extend({
+  type: z.literal("gene_name"),
+  gene_name: z.string(),
+}).strict();
+
+const FilteredIsoformsEventSchema = MessageBaseSchema.extend({
+  type: z.literal("filtered_isoforms"),
+  filtered_isoforms: ShortIdArraySchema,
+}).strict();
+
+const PairwiseScoreSchema = z
+  .object({
+    isoform1: z.string(),
+    isoform2: z.string(),
+    score: z.number(),
+  })
+  .strict();
+
+const PairwiseScoresEventSchema = MessageBaseSchema.extend({
+  type: z.literal("pairwise_scores"),
+  pairwise_scores: z.array(PairwiseScoreSchema),
+}).strict();
+
+const PdbIdsTupleSchema = z.tuple([
+  z.string().min(3),
+  z.string().min(1),
+  z.string().min(1),
+]);
+const PdbIdsSchema = z.record(ShortIdSchema, z.array(PdbIdsTupleSchema));
+const PdbIdsEventSchema = MessageEventSchema.extend({
+  type: z.literal("pdb_ids"),
+  pdb_ids: PdbIdsSchema,
+}).strict();
+
+const DoneEventSchema = MessageEventSchema.extend({
+  type: z.literal("done"),
+});
+
+/**
+ * This is the schema for any event coming from the `EventSource`
+ */
+const EventSchema = z
+  .union([
+    MessageEventSchema,
+    GranthamScoreEventSchema,
+    ChargeStatementEventSchema,
+    IsoformsProgressEventSchema,
+    AllIsoformsEventSchema,
+    IsoformSequenceEventSchema,
+    IsoformSequenceProgressEventSchema,
+    MatchingIsoformsEventSchema,
+    GeneNameEventSchema,
+    FilteredIsoformsEventSchema,
+    PairwiseScoresEventSchema,
+    PdbIdsEventSchema,
+    DoneEventSchema,
+  ])
+  .readonly();
+
+/**
+ * Use `zod` magic to infer different types ✨.
+ *
+ * @typedef {z.infer<typeof EventSchema>} Event
+ */
+
+/**
+ * Tailwind CSS classes
+ * =========================================================
+ */
 
 const classes = {
   h2: "text-2xl",
@@ -28,39 +165,72 @@ const classes = {
   anchor: "text-blue-700 underline text-left",
 };
 
+/**
+ * Signals
+ * =========================================================
+ */
+
+/** @type {Signal<string>} */
 const gene_name_signal = signal("NLGN1");
+/** @type {Signal<string>} */
 const residue1_signal = signal("D");
+/** @type {Signal<number>} */
 const position_signal = signal(140);
+/** @type {Signal<string>} */
 const residue2_signal = signal("Y");
-const events_signal = signal([]);
+/** @type {Signal<Event[]>} */
+const events_signal = signal([
+  {
+    type: `message`,
+    message: `Pending. Click "Start" to begin processing.`,
+  },
+]);
+/** @type {Signal<boolean>} */
 const is_running_signal = signal(false);
-
+/** @type {Signal<string | null>} */
 const selected_isoform_signal = signal(null);
+/** @type {Signal<string | null>} */
 const selected_pdb_id_signal = signal(null);
-
+/** @type {Signal<boolean>} */
 const loading_mutated_signal = signal(false);
+/** @type {Signal<string | null>} */
 const pdb_data_trimmed_signal = signal(null);
+/** @type {Signal<string | null>} */
 const pdb_data_mutated_signal = signal(null);
+/** @type {Signal<string | null>} */
 const sequence_signal = signal(null);
+/** @type {Signal<any>} */
 const dssp_signal = signal(null);
 
+effect(() => {
+  const allEvents = events_signal.value;
+  const latestEvent = allEvents.at(-1);
+  if (!latestEvent) return;
+  console.log(`Latest event:`, latestEvent);
+});
+
 const all_isoforms_signal = computed(() => {
-  return events_signal.value.find((e) => e.all_isoforms)?.all_isoforms;
+  return events_signal.value.find((e) => e.type === "all_isoforms")
+    ?.all_isoforms;
 });
 const sequences_signal = computed(() => {
-  return events_signal?.value?.filter((d) => d.type === "sequence") ?? [];
+  return (
+    events_signal?.value?.filter((e) => e.type === "isoform_sequence") ?? []
+  );
 });
 const matching_isoforms_signal = computed(() => {
-  return events_signal.value.find((e) => e.matching_isoforms)
+  return events_signal.value.find((e) => e.type === "matching_isoforms")
     ?.matching_isoforms;
 });
 const filtered_isoforms_signal = computed(() => {
-  return events_signal.value.find((e) => e.filtered_isoforms)
+  return events_signal.value.find((e) => e.type === "filtered_isoforms")
     ?.filtered_isoforms;
 });
 
 const pdb_ids_signal = computed(() => {
-  const pdb_ids = events_signal.value.find((e) => e.pdb_ids)?.pdb_ids;
+  const pdb_ids = events_signal.value.find(
+    (e) => e.type === "pdb_ids"
+  )?.pdb_ids;
   return pdb_ids;
 });
 
@@ -79,8 +249,76 @@ const charge_statement_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "charge_statement");
 });
 
+/**
+ * App Code from here down
+ * =========================================================
+ */
+
+/**
+ * Add an event to the events array.
+ * @param {Event} event
+ */
 function addEvent(event) {
   events_signal.value = [...events_signal.value, event];
+}
+
+/**
+ * Start the `EventSource` and push events to the events signal.
+ * The `EventSource`
+ * @param {URL} url
+ */
+function startEventSource(url) {
+  const eventSource = new EventSource(url);
+
+  const onMessage = (event) => {
+    try {
+      /** @type {Event} */
+      let parsed;
+      try {
+        parsed = JSON.parse(event.data);
+      } catch (error) {
+        throw new Error(`Error parsing event JSON`, {
+          cause: {
+            error,
+            event,
+            eventData: event.data,
+          },
+        });
+      }
+      const parseResult = EventSchema.safeParse(parsed);
+      if (!parseResult.success) {
+        console.error(`Error parsing event:`, parsed);
+        console.error(`Raw error:`, parseResult.error);
+        console.error(`Formatted error:`, parseResult.error.format());
+        throw new Error(`Error parsing event:`, {
+          cause: {
+            parseResult,
+            parsed,
+          },
+        });
+      }
+      // Add the event to the events Signal
+      addEvent(parsed);
+      if (parsed.type === "done") {
+        is_running_signal.value = false;
+        autoSelectPDB();
+        console.info("Done processing, closing EventSource");
+        eventSource.close();
+      }
+    } catch (error) {
+      console.error("Error processing event:", error);
+      console.warn("Closing EventSource");
+      eventSource.close();
+    }
+  };
+
+  eventSource.addEventListener("message", onMessage);
+
+  eventSource.addEventListener("error", (error) => {
+    console.error("EventSource failed:", error);
+    eventSource.removeEventListener("message", onMessage);
+    eventSource.close();
+  });
 }
 
 function startProcessing() {
@@ -94,38 +332,15 @@ function startProcessing() {
     pdb_data_mutated_signal.value = null;
     sequence_signal.value = null;
     dssp_signal.value = null;
-  })
-
+  });
 
   const url = new URL("/process", window.location.origin);
-  url.searchParams.append("gene_name", gene_name_signal);
-  url.searchParams.append("residue1", residue1_signal);
-  url.searchParams.append("position", position_signal);
-  url.searchParams.append("residue2", residue2_signal);
+  url.searchParams.append("gene_name", gene_name_signal.value);
+  url.searchParams.append("residue1", residue1_signal.value);
+  url.searchParams.append("position", position_signal.value.toString());
+  url.searchParams.append("residue2", residue2_signal.value);
 
-  const eventSource = new EventSource(url);
-
-  eventSource.onmessage = (event) => {
-    console.info(event.data);
-    let parsed;
-    try {
-      parsed = JSON.parse(event.data);
-    } catch (e) {
-      console.error(e);
-      return;
-    }
-    addEvent(parsed);
-    if (parsed.type === "done") {
-      is_running_signal.value = false;
-      autoSelectPDB();
-      eventSource.close();
-    }
-  };
-
-  eventSource.onerror = (error) => {
-    console.error("EventSource failed:", error);
-    eventSource.close();
-  };
+  startEventSource(url);
 }
 
 async function fetchSequence(isoform) {
@@ -167,6 +382,10 @@ async function getMutated({ pdb_string, chain_id, position, to_residue }) {
   loading_mutated_signal.value = false;
 }
 
+/**
+ * @param {{ isoform: string; pdb_id: string; chains: string[] | null; }} params
+ * @returns {Promise<void>}
+ */
 async function fetchPDB({ isoform, pdb_id, chains }) {
   console.log(`Fetching PDB:`, { isoform, pdb_id, chains });
   selected_isoform_signal.value = isoform;
@@ -198,7 +417,7 @@ async function fetchPDB({ isoform, pdb_id, chains }) {
     pdb_string: trimmed,
     chain_id: trim_to_chain,
     position: position_signal.value,
-    to_residue: residue2_signal.value
+    to_residue: residue2_signal.value,
   });
 }
 
@@ -224,7 +443,7 @@ async function fetchPDBFromAlphaFold(isoform) {
     pdb_string: pdb_string_raw,
     chain_id: null,
     position: position_signal.value,
-    to_residue: residue2_signal.value
+    to_residue: residue2_signal.value,
   });
 }
 
@@ -295,7 +514,6 @@ function autoSelectPDB() {
   }
 }
 
-
 function Spacer({ size = 5 }) {
   return html`<div className=${`h-${size}`}></div>`;
 }
@@ -313,57 +531,58 @@ function Anchor({ children, href }) {
 
 function Inputs() {
   return html`
-  <div class="grid grid-cols-2 gap-y-4 gap-x-4">
-    <label>
-      <div>Gene Name</div>
-      <input
-        type="text"
-        className=${classes.bigInput}
-        value=${gene_name_signal}
-        onInput=${(e) => (gene_name_signal.value = e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Residue 1</div>
-      <input
-        type="text"
-        className=${classes.bigInput}
-        value=${residue1_signal}
-        onInput=${(e) => (residue1_signal.value = e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Position</div>
-      <input
-        type="text"
-        className=${classes.bigInput}
-        value=${position_signal}
-        onInput=${(e) => (position_signal.value = +e.target.value)}
-      />
-    </label>
-    <label>
-      <div>Residue 2</div>
-      <input
-        type="text"
-        className=${classes.bigInput}
-        value=${residue2_signal}
-        onInput=${(e) => (residue2_signal.value = e.target.value)}
-      />
-    </label>
-    <div class="col-span-2">
-      <button
-        className=${classes.bigButton}
-        disabled=${is_running_signal}
-        onClick=${startProcessing}
-      >
-        Start
-      </button>
+    <div class="grid grid-cols-2 gap-y-4 gap-x-4">
+      <label>
+        <div>Gene Name</div>
+        <input
+          type="text"
+          className=${classes.bigInput}
+          value=${gene_name_signal}
+          onInput=${(e) => (gene_name_signal.value = e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Residue 1</div>
+        <input
+          type="text"
+          className=${classes.bigInput}
+          value=${residue1_signal}
+          onInput=${(e) => (residue1_signal.value = e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Position</div>
+        <input
+          type="text"
+          className=${classes.bigInput}
+          value=${position_signal}
+          onInput=${(e) => (position_signal.value = +e.target.value)}
+        />
+      </label>
+      <label>
+        <div>Residue 2</div>
+        <input
+          type="text"
+          className=${classes.bigInput}
+          value=${residue2_signal}
+          onInput=${(e) => (residue2_signal.value = e.target.value)}
+        />
+      </label>
+      <div class="col-span-2">
+        <button
+          className=${classes.bigButton}
+          disabled=${is_running_signal}
+          onClick=${startProcessing}
+          data-test-id="start-button"
+        >
+          Start
+        </button>
+      </div>
+      <div className="col-span-2">
+        <div>Status:</div>
+        <div>${log_array_signal.value.at(-1)}</div>
+      </div>
     </div>
-    <div className="col-span-2">
-      <div>Status:</div>
-      <div>${log_array_signal.value.at(-1) ?? `Pending`}</div>
-    </div>
-  </div>
   `;
 }
 
@@ -388,7 +607,7 @@ function DSSPText() {
   }
   let text = html`Pending`;
   if (dssp_description_string.length > 0) {
-    text = dssp_description_string.map((d) => html`<div>${d}</div>`)
+    text = html`${dssp_description_string.map((d) => html`<div>${d}</div>`)}`;
   }
   return html`
     <div>
@@ -399,37 +618,44 @@ function DSSPText() {
   `;
 }
 
-
 function TextBoxes() {
   const isoform = selected_isoform_signal.value;
   const pdb_id = selected_pdb_id_signal.value;
 
-  const isoform_anchors = isoform ? html`<div><${IsoformAnchors} isoform=${isoform} /></div>` : null;
+  const isoform_anchors = isoform
+    ? html`<div><${IsoformAnchors} isoform=${isoform} /></div>`
+    : null;
   const pdb_url = `https://www.rcsb.org/structure/${pdb_id}`;
-  const pdb_anchor = pdb_id ? html`<${Anchor} href=${pdb_url}>${pdb_id}</${Anchor}>` : `Pending`;
+  const pdb_anchor = pdb_id
+    ? html`<${Anchor} href=${pdb_url}>${pdb_id}</${Anchor}>`
+    : `Pending`;
   return html`
-  <div className="grid grid-cols-4 gap-4 px-10">
-    <div>
-      <h2 className=${classes.h2}>Selected Isoform</h2>
-      <div>${selected_isoform_signal.value ?? `Pending`}</div>
-      ${isoform_anchors}
-      <${Spacer} />
-      <h2 className=${classes.h2}>Selected PDB</h2>
-      <div>${pdb_anchor}</div>
+    <div className="grid grid-cols-4 gap-4 px-10">
+      <div>
+        <h2 className=${classes.h2}>Selected Isoform</h2>
+        <div>${selected_isoform_signal.value ?? `Pending`}</div>
+        ${isoform_anchors}
+        <${Spacer} />
+        <h2 className=${classes.h2}>Selected PDB</h2>
+        <div>${pdb_anchor}</div>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>Charge Statement</h2>
+        <${Spacer} />
+        <div>
+          ${charge_statement_signal?.value?.charge_statement ?? `Pending`}
+        </div>
+      </div>
+      <div>
+        <h2 className=${classes.h2}>Grantham Score</h2>
+        <${Spacer} />
+        <div>
+          ${grantham_score_signal?.value?.grantham_statement ?? `Pending`}
+        </div>
+      </div>
+      <${DSSPText} />
     </div>
-    <div>
-      <h2 className=${classes.h2}>Charge Statement</h2>
-      <${Spacer} />
-      <div>${charge_statement_signal?.value?.charge_statement ?? `Pending`}</div>
-    </div>
-    <div>
-      <h2 className=${classes.h2}>Grantham Score</h2>
-      <${Spacer} />
-      <div>${grantham_score_signal?.value?.grantham_statement ?? `Pending`}</div>
-    </div>
-    <${DSSPText} />
-  </div>
-`;
+  `;
 }
 
 const usePDBViewer = (pdbSignal, viewer) => {
@@ -452,7 +678,7 @@ const usePDBViewer = (pdbSignal, viewer) => {
 
 function PDBViewer() {
   const viewerDivRef = useRef(null);
-  const viewersGridRef = useRef(null);
+  const viewersGridRef = useRef(/** @type {any} **/ (null));
   useEffect(() => {
     if (!viewerDivRef.current) {
       return;
@@ -543,7 +769,10 @@ function SequenceViewer() {
           ${index + 1}
         </span>`;
       }
-      const bg = index + 1 === position_signal.value ? "bg-yellow-200 outline outline-2 outline-red-500" : "";
+      const bg =
+        index + 1 === position_signal.value
+          ? "bg-yellow-200 outline outline-2 outline-red-500"
+          : "";
       return html`<span className=${`relative block ${bg}`}>
         ${marker}${letter}
       </span>`;
@@ -559,7 +788,7 @@ function SequenceViewer() {
       <${Spacer} />
       ${value === "" ? `Pending` : seq}
     </div>
-  `
+  `;
 }
 
 function IsoformAnchors({ isoform }) {
@@ -580,13 +809,13 @@ function MatchingIsoforms() {
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const cards = filtered_isoforms.map((isoform) => {
-    const anchors = html`<${IsoformAnchors} isoform=${isoform} />`
+    const anchors = html`<${IsoformAnchors} isoform=${isoform} />`;
     const pdb_ids = pdb_ids_signal.value?.[isoform] ?? [];
     let pdb_rows = html`<div className="text-gray-500 ml-[3ch]">
       No PDB IDs found
     </div>`;
     if (pdb_ids.length > 0) {
-      pdb_rows = pdb_ids.map(([pdb_id, chains_text, resolution_text]) => {
+      const rows = pdb_ids.map(([pdb_id, chains_text, resolution_text]) => {
         let chains = null;
         let is_in_pdb = false;
         let position_range = null;
@@ -621,6 +850,7 @@ function MatchingIsoforms() {
           </div>
         `;
       });
+      pdb_rows = html`${rows}`;
     }
     return html`
       <div className="space-y-2">
@@ -639,11 +869,12 @@ function MatchingIsoforms() {
       </div>
     `;
   });
-  return html`
-  <div class="px-10">
+  return html` <div class="px-10">
     <h2 class=${classes.h2}>Matching Isoforms</h2>
     <${Spacer} />
-    <div className="space-y-4">${filtered_isoforms.length === 0 ? `Pending` : cards}</div>
+    <div className="space-y-4">
+      ${filtered_isoforms.length === 0 ? `Pending` : cards}
+    </div>
   </div>`;
 }
 
@@ -698,11 +929,11 @@ function AllIsoforms() {
     <h2 class=${classes.h2}>All Isoforms</h2>
     <${Spacer} />
     ${table}
-  </div>`
+  </div>`;
 }
 
-
 function Examples() {
+  /** @typedef {[string, string, number, string]} ExampleTuple  */
   const others = `SLC6A1 S295, FRMPD4 E471, NRXN1 T324, NRXN1 V1214, ACTB V298`
     .split(`,`)
     .map((d) => d.trim())
@@ -712,8 +943,11 @@ function Examples() {
       const residue1 = residue[0];
       const position = +residue.slice(1);
       const residue2 = `C`;
-      return [gene_name, residue1, position, residue2];
+      /** @type {ExampleTuple} */
+      const tuple = [gene_name, residue1, position, residue2];
+      return tuple;
     });
+  /** @type {ExampleTuple[]} */
   const examples = [
     [`NLGN1`, `D`, 140, `Y`],
     [`SHANK3`, `D`, 26, `Y`],
@@ -749,32 +983,42 @@ function Examples() {
 
 function App() {
   return html`
-  <main class="space-y-4">
-    <div
-      className="grid lg:grid-cols-2"
-    >
-      <section class="py-10 px-10" style=${{ backgroundColor: `var(--ccb-green)` }}>
-        <h1 class="text-[3rem]">MutantAutoMate</h1>
-        <p>${intro_text}</p>
-      </section>
-      <section class="py-10 px-10">
-        <h2 class="text-3xl">Inputs</h2>
-        <${Inputs} />
-      </section>
-    </div>
-   <${TextBoxes} />
-   <${PDBViewer} />
-   <${SequenceViewer} />
-   <${Spacer} />
-   <${MatchingIsoforms} />
-   <${Spacer} />
-   <${AllIsoforms} />
-   <${Spacer} />
-   <${Examples} />
-   <${Spacer} />
-</main>
+    <main class="space-y-4">
+      <div className="grid lg:grid-cols-2">
+        <section
+          class="py-10 px-10"
+          style=${{ backgroundColor: `var(--ccb-green)` }}
+        >
+          <h1 class="text-[3rem]">MutantAutoMate</h1>
+          <p>${intro_text}</p>
+        </section>
+        <section class="py-10 px-10">
+          <h2 class="text-3xl">Inputs</h2>
+          <${Inputs} />
+        </section>
+      </div>
+      <${TextBoxes} />
+      <${PDBViewer} />
+      <${SequenceViewer} />
+      <${Spacer} />
+      <${MatchingIsoforms} />
+      <${Spacer} />
+      <${AllIsoforms} />
+      <${Spacer} />
+      <${Examples} />
+      <${Spacer} />
+    </main>
   `;
 }
 
 render(html`<${App} />`, document.body);
 window.scrollTo(0, 0);
+
+// Auto-start
+document.addEventListener("DOMContentLoaded", () => {
+  /** @type {HTMLButtonElement | null} */
+  const startButton = document.querySelector(`[data-test-id="start-button"]`);
+  if (startButton) {
+    startButton.click();
+  }
+});

@@ -53,13 +53,14 @@ def process_route():
         return "Residue 2 is required", 400
 
     def generate():
-        yield stream_data({"message": "Processing request."})
+        yield stream_data({"type": "message", "message": "Processing request."})
         for data in process(gene_name, residue1, position, residue2):
             print(data)
             yield stream_data(data)
         yield stream_data({"type": "done", "message": "Done processing."})
 
     return Response(stream_with_context(generate()), content_type="text/event-stream")
+
 
 @app.route("/mutate", methods=["POST"])
 def mutate_route_route():
@@ -71,6 +72,7 @@ def mutate_route_route():
     mutated = mutate_residue(pdb_string, chain_id, position, to_residue)
     return mutated
 
+
 @app.route("/trim_pdb", methods=["POST"])
 def trim_pdb_route():
     data = request.get_json()
@@ -78,6 +80,7 @@ def trim_pdb_route():
     chains = data.get("chains")
     pdb_string = trim_pdb(pdb_data, chains)
     return pdb_string
+
 
 @app.route("/dssp", methods=["POST"])
 def dssp_route():
