@@ -648,12 +648,32 @@ function Inputs() {
 function StatusDisplay() {
   const latestLog = log_array_signal.value.at(-1) ?? start_message;
 
+  console.log(`Latest Log:`, latestLog);
+
+  return html`
+    <${Fragment}>
+      <div>Status:</div>
+      <div>${log_array_signal.value.at(-1)}</div>
+      <div>
+        <${ProgressBar} string=${latestLog} />
+      </div>
+    </${Fragment}>
+  `;
+}
+
+/**
+ * @param {{ string: string }} props
+ * @returns {preact.VNode}
+ */
+function ProgressBar({ string }) {
   let showProgress = false;
   let progressValue = 0;
   let progressMax = 100;
 
   const progressRegex = /(?<first>\d+)\s\/\s(?<second>\d+)/;
-  const match = progressRegex.exec(latestLog);
+
+  const match = progressRegex.exec(string);
+
   if (match !== null) {
     if (match.groups) {
       const { first, second } = match.groups;
@@ -665,17 +685,13 @@ function StatusDisplay() {
 
   return html`
     <${Fragment}>
-      <div>Status:</div>
-      <div>${log_array_signal.value.at(-1)}</div>
-      <div>
-        <progress
-          value=${progressValue}
-          max=${progressMax}
-          style=${{
-            opacity: showProgress ? 1 : 0,
-          }}
-        ></progress>
-      </div>
+      <progress
+        value=${progressValue}
+        max=${progressMax}
+        style=${{
+          opacity: showProgress ? 1 : 0,
+        }}
+      ></progress>
       <style>
         progress {
           --border-radius: 4px;
@@ -687,12 +703,10 @@ function StatusDisplay() {
           border-radius: var(--border-radius);
           overflow: hidden;
         }
-
         progress::-webkit-progress-bar {
           background-color: lightgrey;
           border-radius: var(--border-radius);
         }
-
         progress::-webkit-progress-value {
           background-color: var(--ccb-green);
           border-radius: var(--border-radius);
@@ -701,7 +715,6 @@ function StatusDisplay() {
           background-color: var(--ccb-green);
           border-radius: var(--border-radius);
         }
-
       </style>
     </${Fragment}>
   `;
@@ -884,7 +897,7 @@ function PDBViewer() {
       >
         Zoom to Position: ${position_signal.value}
       </button>
-      <div className="inline-block ml-4 text-lg">${loading_text}</div>
+      <div className="inline-block ml-4 text-xl font-bold">${loading_text}</div>
       <${Spacer} />
       <div
         ref=${viewerDivRef}

@@ -222,7 +222,7 @@ def process(gene_name, residue1, position, residue2):
     )
     yield {
         "type": "grantham_score",
-        "message": grantham_score_with_statement["grantham_statement"],
+        "message": "Calculated Grantham score.",
         **grantham_score_with_statement,
     }
 
@@ -231,7 +231,7 @@ def process(gene_name, residue1, position, residue2):
     yield {
         "type": "charge_statement",
         "charge_statement": charge_statement,
-        "message": charge_statement,
+        "message": "Got charge statement.",
     }
 
     # Collect all isoforms
