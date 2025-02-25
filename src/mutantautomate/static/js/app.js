@@ -9,7 +9,7 @@
  * - The importmap is defined in the HTML file named `index2.html`.
  * - All packages are fetched from a free JS CDN, [esm.sh](https://esm.sh/).
  */
-import { render } from "preact";
+import { Fragment, render } from "preact";
 import { useRef, useEffect } from "preact/hooks";
 import { signal, computed, batch, effect } from "@preact/signals";
 import { html } from "htm/preact";
@@ -18,6 +18,7 @@ import { z } from "zod";
 
 /** Edit this to edit the intro text. */
 const intro_text = `MutantAutoMate is a tool that lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
+const start_message = `Pending. Click "Start" to begin processing.`;
 
 /**
  * Top-Level Type Definitions
@@ -27,6 +28,11 @@ const intro_text = `MutantAutoMate is a tool that lorem ipsum dolor sit amet, co
 /**
  * @template T
  * @typedef {import("@preact/signals").Signal<T>} Signal
+ */
+
+/**
+ * @template T
+ * @typedef {import("@preact/signals").ReadonlySignal<T>} ReadonlySignal
  */
 
 /**
@@ -60,7 +66,7 @@ const ChargeStatementEventSchema = MessageBaseSchema.extend({
 
 const IsoformsProgressEventSchema = MessageBaseSchema.extend({
   type: z.literal("isoforms_progress"),
-  message: z.string().regex(/^got \d+ isoforms$/),
+  message: z.string().regex(/^Fetched \d+ isoforms.$/),
 }).strict();
 
 const AllIsoformsEventSchema = MessageBaseSchema.extend({
@@ -75,7 +81,7 @@ const IsoformSequenceEventSchema = MessageBaseSchema.extend({
 
 const IsoformSequenceProgressEventSchema = MessageBaseSchema.extend({
   type: z.literal("isoform_sequence_progress"),
-  message: z.string().regex(/^got \d+ \/ \d+ sequences$/),
+  message: z.string().regex(/^Fetched \d+ \/ \d+ sequences.$/),
 }).strict();
 
 const MatchingIsoformsEventSchema = MessageBaseSchema.extend({
@@ -172,33 +178,45 @@ const classes = {
 
 /** @type {Signal<string>} */
 const gene_name_signal = signal("NLGN1");
+
 /** @type {Signal<string>} */
 const residue1_signal = signal("D");
+
 /** @type {Signal<number>} */
 const position_signal = signal(140);
+
 /** @type {Signal<string>} */
 const residue2_signal = signal("Y");
+
 /** @type {Signal<Event[]>} */
 const events_signal = signal([
   {
     type: `message`,
-    message: `Pending. Click "Start" to begin processing.`,
+    message: start_message,
   },
 ]);
+
 /** @type {Signal<boolean>} */
 const is_running_signal = signal(false);
+
 /** @type {Signal<string | null>} */
 const selected_isoform_signal = signal(null);
+
 /** @type {Signal<string | null>} */
 const selected_pdb_id_signal = signal(null);
+
 /** @type {Signal<boolean>} */
 const loading_mutated_signal = signal(false);
+
 /** @type {Signal<string | null>} */
 const pdb_data_trimmed_signal = signal(null);
+
 /** @type {Signal<string | null>} */
 const pdb_data_mutated_signal = signal(null);
+
 /** @type {Signal<string | null>} */
 const sequence_signal = signal(null);
+
 /** @type {Signal<any>} */
 const dssp_signal = signal(null);
 
@@ -213,15 +231,18 @@ const all_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "all_isoforms")
     ?.all_isoforms;
 });
+
 const sequences_signal = computed(() => {
   return (
     events_signal?.value?.filter((e) => e.type === "isoform_sequence") ?? []
   );
 });
+
 const matching_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "matching_isoforms")
     ?.matching_isoforms;
 });
+
 const filtered_isoforms_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "filtered_isoforms")
     ?.filtered_isoforms;
@@ -234,6 +255,7 @@ const pdb_ids_signal = computed(() => {
   return pdb_ids;
 });
 
+/** @type {ReadonlySignal<string[]>} */
 const log_array_signal = computed(() =>
   events_signal.value
     .map((e) => e.message)
@@ -242,9 +264,12 @@ const log_array_signal = computed(() =>
     .filter((d) => d?.length > 0)
 );
 
+/** @type {ReadonlySignal<z.infer<typeof GranthamScoreEventSchema> | undefined>} */
 const grantham_score_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "grantham_score");
 });
+
+/** @type {ReadonlySignal<z.infer<typeof ChargeStatementEventSchema> | undefined>} */
 const charge_statement_signal = computed(() => {
   return events_signal.value.find((e) => e.type === "charge_statement");
 });
@@ -306,6 +331,7 @@ function startEventSource(url) {
       addEvent(validEvent);
       if (validEvent.type === "done") {
         is_running_signal.value = false;
+        // We don't need to wait for this promise to resolve.
         autoSelectPDB();
         console.info("Done processing, closing EventSource");
         eventSource.close();
@@ -326,6 +352,10 @@ function startEventSource(url) {
   });
 }
 
+/**
+ * Reset everything and start processing
+ * @returns {void}
+ */
 function startProcessing() {
   // Reset stuff
   batch(() => {
@@ -348,6 +378,10 @@ function startProcessing() {
   startEventSource(url);
 }
 
+/**
+ * @param {string} isoform
+ * @returns {Promise<void>}
+ */
 async function fetchSequence(isoform) {
   console.log(`Fetching sequence for ${isoform}`);
   const response = await fetch(
@@ -356,6 +390,10 @@ async function fetchSequence(isoform) {
   sequence_signal.value = response.split("\n").slice(1).join("\n");
 }
 
+/**
+ * @param {{ pdb_string: string }} params
+ * @returns {Promise<void>}
+ */
 async function getDSSP({ pdb_string }) {
   const dssp_data = await fetch(`/dssp`, {
     method: "POST",
@@ -369,6 +407,10 @@ async function getDSSP({ pdb_string }) {
   dssp_signal.value = dssp_data;
 }
 
+/**
+ * @param {{ pdb_string: string; chain_id: string | null; position: number; to_residue: string }} params
+ * @returns {Promise<void>}
+ */
 async function getMutated({ pdb_string, chain_id, position, to_residue }) {
   loading_mutated_signal.value = true;
   const mutated_pdb_data = await fetch(`/mutate`, {
@@ -403,29 +445,33 @@ async function fetchPDB({ isoform, pdb_id, chains }) {
     `https://files.rcsb.org/download/${pdb_id}.pdb`
   ).then((res) => res.text());
   // NOTE: Just trim to the first chain
-  const trim_to_chain = chains?.[0];
-  if (!trim_to_chain) {
+  const first_chain = chains?.[0];
+  if (!first_chain) {
     throw new Error(`No chains found for ${isoform}`);
     return;
   }
-  console.log(`Trimming PDB to chain: ${trim_to_chain}`);
+  console.log(`Trimming PDB to chain: ${first_chain}`);
   const trimmed = await fetch(`/trim_pdb`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ pdb_data: pdb_string_raw, chains: [trim_to_chain] }),
+    body: JSON.stringify({ pdb_data: pdb_string_raw, chains: [first_chain] }),
   }).then((res) => res.text());
   pdb_data_trimmed_signal.value = trimmed;
   await getDSSP({ pdb_string: trimmed });
   await getMutated({
     pdb_string: trimmed,
-    chain_id: trim_to_chain,
+    chain_id: first_chain,
     position: position_signal.value,
     to_residue: residue2_signal.value,
   });
 }
 
+/**
+ * @param {string} isoform
+ * @returns {Promise<void>}
+ */
 async function fetchPDBFromAlphaFold(isoform) {
   console.log(`Fetching from AlphaFold: ${isoform}`);
   selected_isoform_signal.value = isoform;
@@ -452,7 +498,12 @@ async function fetchPDBFromAlphaFold(isoform) {
   });
 }
 
-function autoSelectPDB() {
+/**
+ * Try to auto-select a PDB based on the first isoform.
+ *
+ * @returns {Promise<void>}
+ */
+async function autoSelectPDB() {
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
   const all_pdb_ids = pdb_ids_signal.value ?? {};
@@ -513,16 +564,18 @@ function autoSelectPDB() {
   }
   const { pdb_id, chains } = found_pdb;
   if (pdb_id === `alphafold`) {
-    fetchPDBFromAlphaFold(first_isoform);
+    await fetchPDBFromAlphaFold(first_isoform);
   } else {
-    fetchPDB({ isoform: first_isoform, pdb_id, chains });
+    await fetchPDB({ isoform: first_isoform, pdb_id, chains });
   }
 }
 
+/** @returns {preact.VNode} */
 function Spacer({ size = 5 }) {
   return html`<div className=${`h-${size}`}></div>`;
 }
 
+/** @returns {preact.VNode} */
 function Anchor({ children, href }) {
   return html`<a
     href=${href}
@@ -534,6 +587,7 @@ function Anchor({ children, href }) {
   </a>`;
 }
 
+/** @returns {preact.VNode} */
 function Inputs() {
   return html`
     <div class="grid grid-cols-2 gap-y-4 gap-x-4">
@@ -584,13 +638,76 @@ function Inputs() {
         </button>
       </div>
       <div className="col-span-2">
-        <div>Status:</div>
-        <div>${log_array_signal.value.at(-1)}</div>
+        <${StatusDisplay} />
       </div>
     </div>
   `;
 }
 
+/** @returns {preact.VNode} */
+function StatusDisplay() {
+  const latestLog = log_array_signal.value.at(-1) ?? start_message;
+
+  let showProgress = false;
+  let progressValue = 0;
+  let progressMax = 100;
+
+  const progressRegex = /(?<first>\d+)\s\/\s(?<second>\d+)/;
+  const match = progressRegex.exec(latestLog);
+  if (match !== null) {
+    if (match.groups) {
+      const { first, second } = match.groups;
+      showProgress = true;
+      progressValue = +first;
+      progressMax = +second;
+    }
+  }
+
+  return html`
+    <${Fragment}>
+      <div>Status:</div>
+      <div>${log_array_signal.value.at(-1)}</div>
+      <div>
+        <progress
+          value=${progressValue}
+          max=${progressMax}
+          style=${{
+            opacity: showProgress ? 1 : 0,
+          }}
+        ></progress>
+      </div>
+      <style>
+        progress {
+          --border-radius: 4px;
+          width: 100%;
+          height: 20px;
+          margin-top: 1rem;
+          -webkit-appearance: none;
+          appearance: none;
+          border-radius: var(--border-radius);
+          overflow: hidden;
+        }
+
+        progress::-webkit-progress-bar {
+          background-color: lightgrey;
+          border-radius: var(--border-radius);
+        }
+
+        progress::-webkit-progress-value {
+          background-color: var(--ccb-green);
+          border-radius: var(--border-radius);
+        }
+        progress::-moz-progress-bar {
+          background-color: var(--ccb-green);
+          border-radius: var(--border-radius);
+        }
+
+      </style>
+    </${Fragment}>
+  `;
+}
+
+/** @returns {preact.VNode} */
 function DSSPText() {
   const selected_position = position_signal.value;
   const dssp_data = dssp_signal.value ?? [];
@@ -623,6 +740,7 @@ function DSSPText() {
   `;
 }
 
+/** @returns {preact.VNode} */
 function TextBoxes() {
   const isoform = selected_isoform_signal.value;
   const pdb_id = selected_pdb_id_signal.value;
@@ -663,6 +781,10 @@ function TextBoxes() {
   `;
 }
 
+/**
+ * @param {Signal<string | null>} pdbSignal
+ * @param {$3Dmol.GLViewer | undefined} viewer
+ */
 const usePDBViewer = (pdbSignal, viewer) => {
   useEffect(() => {
     if (!viewer) return;
@@ -681,22 +803,35 @@ const usePDBViewer = (pdbSignal, viewer) => {
   }, [pdbSignal.value]);
 };
 
+/**
+ * @returns {preact.VNode}
+ */
 function PDBViewer() {
-  const viewerDivRef = useRef(null);
-  const viewersGridRef = useRef(/** @type {any} **/ (null));
+  /** @typedef {$3Dmol.GLViewer[][]} ViewerGrid */
+
+  const viewerDivRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+
+  const viewersGridRef = useRef(/** @type {ViewerGrid | null} **/ (null));
+
   useEffect(() => {
     if (!viewerDivRef.current) {
       return;
     }
-    viewersGridRef.current = $3Dmol.createViewerGrid(viewerDivRef.current, {
+    const viewerGrid = $3Dmol.createViewerGrid(viewerDivRef.current, {
       rows: 1,
       cols: 2,
       control_all: true,
     });
+    viewersGridRef.current = viewerGrid;
   }, []);
 
-  usePDBViewer(pdb_data_trimmed_signal, viewersGridRef.current?.[0][0]);
-  usePDBViewer(pdb_data_mutated_signal, viewersGridRef.current?.[0][1]);
+  /** @type {$3Dmol.GLViewer | undefined} */
+  const viewer1 = viewersGridRef.current?.[0][0];
+  /** @type {$3Dmol.GLViewer | undefined} */
+  const viewer2 = viewersGridRef.current?.[0][1];
+
+  usePDBViewer(pdb_data_trimmed_signal, viewer1);
+  usePDBViewer(pdb_data_mutated_signal, viewer2);
 
   const zoom_to = () => {
     const position = +(position_signal?.value ?? 0);
@@ -712,9 +847,8 @@ function PDBViewer() {
         );
         // Label for residue
         viewer.addLabel(
-          position,
+          position.toString(),
           {
-            position: "center",
             backgroundOpacity: 0.8,
             fontSize: 12,
             showBackground: true,
@@ -760,6 +894,9 @@ function PDBViewer() {
   `;
 }
 
+/**
+ * @returns {preact.VNode}
+ */
 function SequenceViewer() {
   const value = sequence_signal.value ?? "";
   const letters = value
@@ -796,6 +933,10 @@ function SequenceViewer() {
   `;
 }
 
+/**
+ * @param {{ isoform: string }} props
+ * @returns {preact.VNode}
+ */
 function IsoformAnchors({ isoform }) {
   const uniprot_url = `https://www.uniprot.org/uniprotkb/${isoform}`;
   const text_url = `https://rest.uniprot.org/uniprotkb/${isoform}.txt`;
@@ -810,6 +951,9 @@ function IsoformAnchors({ isoform }) {
   return anchors;
 }
 
+/**
+ * @returns {preact.VNode}
+ */
 function MatchingIsoforms() {
   const position = position_signal.value;
   const filtered_isoforms = filtered_isoforms_signal.value ?? [];
@@ -883,6 +1027,9 @@ function MatchingIsoforms() {
   </div>`;
 }
 
+/**
+ * @returns {preact.VNode}
+ */
 function AllIsoforms() {
   const all_isoforms = all_isoforms_signal.value ?? [];
   const sequences = sequences_signal.value ?? [];
@@ -937,6 +1084,9 @@ function AllIsoforms() {
   </div>`;
 }
 
+/**
+ * @returns {preact.VNode}
+ */
 function Examples() {
   /** @typedef {[string, string, number, string]} ExampleTuple  */
   const others = `SLC6A1 S295, FRMPD4 E471, NRXN1 T324, NRXN1 V1214, ACTB V298`
@@ -986,6 +1136,9 @@ function Examples() {
   `;
 }
 
+/**
+ * @returns {preact.VNode}
+ */
 function App() {
   return html`
     <main class="space-y-4">
@@ -1019,11 +1172,11 @@ function App() {
 render(html`<${App} />`, document.body);
 window.scrollTo(0, 0);
 
-// Auto-start
-document.addEventListener("DOMContentLoaded", () => {
-  /** @type {HTMLButtonElement | null} */
-  const startButton = document.querySelector(`[data-test-id="start-button"]`);
-  if (startButton) {
-    startButton.click();
-  }
-});
+// Auto-start, useful when testing
+// document.addEventListener("DOMContentLoaded", () => {
+//   /** @type {HTMLButtonElement | null} */
+//   const startButton = document.querySelector(`[data-test-id="start-button"]`);
+//   if (startButton) {
+//     startButton.click();
+//   }
+// });

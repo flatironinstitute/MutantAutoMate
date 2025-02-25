@@ -245,11 +245,11 @@ def process(gene_name, residue1, position, residue2):
             }
         yield {
             "type": "isoforms_progress",
-            "message": f"got {len(all_isoforms)} isoforms",
+            "message": f"Fetched {len(all_isoforms)} isoforms.",
         }
     yield {
         "type": "all_isoforms",
-        "message": "All isoforms",
+        "message": "Fetched all isoforms.",
         "all_isoforms": list(all_isoforms.keys()),
     }
 
@@ -262,12 +262,12 @@ def process(gene_name, residue1, position, residue2):
         sequences_found += 1
         yield {
             "type": "isoform_sequence",
-            "message": f"got sequence for {isoform}",
+            "message": f"Fetched sequence for {isoform}.",
             "isoform": isoform,
         }
         yield {
             "type": "isoform_sequence_progress",
-            "message": f"got {sequences_found} / {len(all_isoforms)} sequences",
+            "message": f"Fetched {sequences_found} / {len(all_isoforms)} sequences.",
         }
 
     # Find isoforms with residue1 at position
@@ -278,11 +278,11 @@ def process(gene_name, residue1, position, residue2):
             matching_isoforms[isoform] = data
             yield {
                 "type": "message",
-                "message": f"found {isoform} with {residue1} at position {position}",
+                "message": f"Found {isoform} with {residue1} at position {position}.",
             }
     yield {
         "type": "matching_isoforms",
-        "message": f"found {len(matching_isoforms)} matching isoforms",
+        "message": f"Found {len(matching_isoforms)} matching isoforms.",
         "matching_isoforms": list(matching_isoforms.keys()),
     }
 
@@ -293,7 +293,7 @@ def process(gene_name, residue1, position, residue2):
         all_isoforms[isoform]["gene_name"] = this_gene_name
         yield {
             "type": "gene_name",
-            "message": f"got gene name for {isoform}: {this_gene_name}",
+            "message": f"Fetched gene name for {isoform}: {this_gene_name}.",
             "gene_name": this_gene_name,
         }
 
@@ -303,13 +303,13 @@ def process(gene_name, residue1, position, residue2):
         this_gene_name = matching_isoforms[isoform]["gene_name"]
         yield {
             "type": "message",
-            "message": f"gene names for {isoform}: {this_gene_name} and {gene_name}",
+            "message": f"Found gene names for {isoform}: {this_gene_name} and {gene_name}.",
         }
         if this_gene_name == gene_name:
             filtered_isoforms[isoform] = matching_isoforms[isoform]
     yield {
         "type": "filtered_isoforms",
-        "message": f"filtered isoforms: {filtered_isoforms.keys()}",
+        "message": f"Filtered isoforms: {filtered_isoforms.keys()}.",
         "filtered_isoforms": list(filtered_isoforms.keys()),
     }
 
@@ -323,7 +323,7 @@ def process(gene_name, residue1, position, residue2):
             pairwise_scores[(isoform1, isoform2)] = alignment_score
             yield {
                 "type": "message",
-                "message": f"similarity for {isoform1} and {isoform2}: {alignment_score}",
+                "message": f"Computed similarity for {isoform1} and {isoform2}: {alignment_score}.",
             }
     # Convert the dictionary with tuple keys to a list of dictionaries that is JSON serializable
     pairwise_scores_list = []
@@ -333,7 +333,7 @@ def process(gene_name, residue1, position, residue2):
         )
     yield {
         "type": "pairwise_scores",
-        "message": "Pairwise scores",
+        "message": "Computed pairwise scores.",
         "pairwise_scores": pairwise_scores_list,
     }
 
@@ -358,4 +358,4 @@ def process(gene_name, residue1, position, residue2):
                         if prop["key"] == "Resolution":
                             resolution = prop["value"]
                 pdb_ids[isoform].append([pdb_id, chains_specifier, resolution])
-    yield {"type": "pdb_ids", "message": "PDB IDs", "pdb_ids": pdb_ids}
+    yield {"type": "pdb_ids", "message": "Fetched PDB IDs.", "pdb_ids": pdb_ids}
