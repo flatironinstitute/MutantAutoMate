@@ -17,7 +17,7 @@ import $3Dmol from "3dmol";
 import { z } from "zod";
 
 /** Edit this to edit the intro text. */
-const intro_text = `MutantAutoMate is a tool that lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies at tortor ut facilisis. Ut commodo nibh quis nisl porttitor mattis vitae vitae augue. Nam purus mauris, accumsan sit amet vulputate a, placerat vel orci. Sed sagittis eros vel erat ullamcorper, ac faucibus est maximus. Nullam a justo non ipsum porta scelerisque. Duis mauris lacus, volutpat nec lectus ut, congue convallis arcu. Aliquam placerat massa dictum arcu pulvinar viverra et vitae justo. Morbi eu diam lorem. Vivamus sit amet vestibulum nunc, id convallis elit. Fusce augue lacus, suscipit nec mi a, commodo tincidunt metus. Integer sed dui ut nunc luctus tempus.`;
+const intro_text = `MutantAutoMate is an easy-to-use tool that helps researchers analyze protein missense mutations. By simply entering details like gene name, mutated residues, and position, the tool quickly finds the relevant protein data from Uniprot. It then uses MolView to display an interactive 3D model of the protein, highlighting the mutation and showing how it affects the protein structure, all while running locally on your computer.`;
 const start_message = `Pending. Click "Start" to begin processing.`;
 
 /**
